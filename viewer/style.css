@@ -1,0 +1,39 @@
+:root { color-scheme: dark; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #e8eaed; background: #181b1f; --muted: #9da6b1; --green: #98dba5; --surface: #24292f; }
+* { box-sizing: border-box; }
+body { margin: 0; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+[hidden] { display: none !important; }
+button { font: inherit; cursor: pointer; border: 0; color: inherit; background: transparent; -webkit-tap-highlight-color: transparent; }
+button:hover { background: #363d45; }
+button:focus-visible, canvas:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+button:disabled { opacity: .4; cursor: default; }
+.toolbar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: #22272c; box-shadow: 0 2px 12px #0002; position: relative; flex: 0 0 60px; z-index: 3; }
+.mark { width: 26px; height: 26px; margin-right: 4px; }
+.device-name { flex: 1; font-size: 14px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.icon-button { width: 38px; height: 38px; flex: 0 0 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; transition: background .15s, color .15s; }
+.icon-button svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.icon-button[aria-pressed="true"] { background: #304b39; color: var(--green); }
+.menu { position: absolute; right: 12px; top: 54px; display: flex; flex-direction: column; width: 210px; padding: 6px; background: #30363d; border-radius: 12px; box-shadow: 0 10px 30px #0007; }
+.menu button { padding: 12px; text-align: left; font-size: 13px; border-radius: 7px; }
+main { min-height: 60px; flex: 1; padding: 18px 14px 10px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+#screen-wrap { position: relative; flex: 0 0 auto; line-height: 0; background: #090b0c; box-shadow: 0 8px 28px #0004; border-radius: 9px; overflow: hidden; max-width: 100%; }
+#screen { display: block; width: 100%; height: 100%; touch-action: none; cursor: default; }
+body.inspecting #screen { cursor: crosshair; }
+#selection { pointer-events: none; position: absolute; border: 2px solid var(--green); background: #98dba51c; border-radius: 3px; }
+.navigation { display: flex; justify-content: center; gap: 22px; padding: 3px 20px; margin: 2px auto 12px; background: var(--surface); border-radius: 16px; flex: 0 0 auto; box-shadow: 0 3px 14px #0002; }
+.navigation .icon-button { color: #c5cbd3; }
+.navigation svg { width: 18px; height: 18px; fill: currentColor; stroke-width: 1; }
+.empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #181b1f; font-size: 13px; color: var(--muted); text-align: center; padding: 30px; line-height: 1.6; }
+.spinner { width: 23px; height: 23px; border: 2px solid #46504b; border-top-color: var(--green); border-radius: 50%; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+#inspector { background: var(--surface); padding: 17px 20px; border-radius: 18px 18px 0 0; box-shadow: 0 -4px 24px #0003; flex: 0 0 auto; max-height: 39vh; overflow: auto; }
+.inspector-head { display: flex; gap: 10px; align-items: center; }
+.inspector-head>div { flex: 1; min-width: 0; }
+.eyebrow { display: block; color: var(--muted); font-size: 11px; margin-bottom: 5px; }
+h1 { font-size: 17px; line-height: 1.3; margin: 0; font-weight: 600; word-break: break-word; }
+.small-button { border-radius: 8px; padding: 8px 13px; background: #35443a; color: var(--green); font-size: 12px; }
+dl { display: grid; grid-template-columns: 82px 1fr; gap: 9px 12px; margin: 18px 0 4px; font-size: 11px; line-height: 1.6; }
+dt { color: var(--muted); } dd { margin: 0; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+#sources { margin-top: 16px; } pre { font: 11px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; padding: 10px; background: #1c2126; border-radius: 8px; }
+#notice { position: fixed; left: 16px; right: 16px; bottom: 72px; max-width: 540px; margin: auto; padding: 12px 16px; background: #39423c; box-shadow: 0 5px 20px #0005; border-radius: 12px; font-size: 12px; line-height: 1.5; z-index: 5; }
+@media(max-width: 360px) { .toolbar { padding: 8px; gap: 3px; } #inspector { padding: 13px; } dl { grid-template-columns: 70px 1fr; } }
+@media(prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Android · Build Android Apps</title><link rel="icon" href="/icon.svg"><link rel="stylesheet" href="/style.css"></head>
+<body>
+  <header class="toolbar">
+    <img class="mark" src="/icon.svg" alt="Android">
+    <div class="device-name" id="device">Connecting…</div>
+    <button id="inspect" class="icon-button" aria-label="Inspect element" title="Inspect element (I)" aria-pressed="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 2v5m0 10v5M2 12h5m10 0h5"/></svg></button>
+    <button id="annotate" class="icon-button" aria-label="Annotate screen" title="Annotate screen" hidden><svg viewBox="0 0 24 24"><path d="m15 4 5 5M4 20l5-1L21 7a2 2 0 0 0-5-5L4 14Z"/></svg></button>
+    <button id="more" class="icon-button" aria-label="More actions" aria-expanded="false" aria-controls="menu"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
+    <div id="menu" class="menu" hidden>
+      <button id="screenshot">Save screenshot</button>
+      <button id="refresh">Refresh hierarchy</button>
+      <button id="transport">Use PNG transport</button>
+      <button id="power">Power button</button>
+    </div>
+  </header>
+  <main id="stage">
+    <div id="screen-wrap"><canvas id="screen" width="1080" height="1920" tabindex="0" aria-label="Live Android screen. Click to tap; drag to swipe; type to enter text."></canvas><div id="selection" hidden></div></div>
+    <div id="empty" class="empty"><div class="spinner"></div><p>Connecting to Android…</p></div>
+  </main>
+  <nav class="navigation" aria-label="Android navigation">
+    <button class="icon-button" data-key="BACK" aria-label="Back" title="Back (Escape)"><svg viewBox="0 0 24 24"><path d="m15 5-9 7 9 7Z"/></svg></button>
+    <button class="icon-button" data-key="HOME" aria-label="Home" title="Home"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></svg></button>
+    <button class="icon-button" data-key="RECENTS" aria-label="Recent apps" title="Recent apps"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
+  </nav>
+  <section id="inspector" hidden aria-label="Element inspector">
+    <div class="inspector-head"><div><span class="eyebrow">Selected element</span><h1 id="element-name"></h1></div><button id="copy" class="small-button">Copy</button><button id="close-inspector" class="icon-button" aria-label="Close inspector"><svg viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></svg></button></div>
+    <dl id="properties"></dl><div id="sources" hidden><span class="eyebrow">Source candidates</span><pre id="source-values"></pre></div>
+  </section>
+  <div id="notice" role="status" hidden></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

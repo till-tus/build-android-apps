@@ -1,0 +1,9 @@
+node_modules/
+artifacts/
+playwright-report/
+test-results/
+.android-plugin/
+*.log
+.DS_Store
+.env*
+!.env.example

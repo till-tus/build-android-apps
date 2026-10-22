@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "android": {
+      "command": "node",
+      "args": ["${PLUGIN_ROOT}/server/dist/cli.mjs", "mcp"],
+      "cwd": "${PLUGIN_ROOT}"
+    }
+  }
+}
