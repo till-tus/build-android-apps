@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { installAnnotationHost } from './annotation-host.mjs';
 async function session(request){return(await(await request.get('http://127.0.0.1:18378')).json()).url;}
 test('real rendered viewer draws a frame, forwards taps, inspects nodes and fits a narrow panel',async({page,request})=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(await session(request));
@@ -22,4 +23,28 @@ test('native annotation contract maps scaled picks, carries metadata, freezes in
  const before=(await(await request.get('http://127.0.0.1:18378/actions')).json()).length;await page.locator('#screen').click();
  expect((await(await request.get('http://127.0.0.1:18378/actions')).json()).length).toBe(before);
  expect(await page.evaluate(()=>window.invalidations)).toBeGreaterThan(0);
+});
+test('host annotation cursor styles load above the emulator and selections retain Android context',async({page,request})=>{
+ await page.addInitScript(installAnnotationHost);
+ const response=await page.goto(await session(request));
+ // Supporting the host's styles must not allow inline page scripts.
+ expect(response.headers()['content-security-policy']).toContain("script-src 'self';");
+ await expect(page.getByText('Connecting to Android…')).toBeHidden();
+ const canvas=page.locator('#screen'),bounds=await canvas.boundingBox();
+ const point={x:bounds.x+bounds.width*100/360,y:bounds.y+bounds.height*160/720};
+ const before=(await(await request.get('http://127.0.0.1:18378/actions')).json()).length;
+ await page.getByRole('button',{name:'Annotate screen',exact:true}).click();
+ await expect(page.locator('#annotate')).toHaveAttribute('aria-pressed','true');
+ await page.mouse.move(point.x,point.y);
+ const pointer=page.locator('#test-annotation-host .annotation-pointer');
+ await expect(pointer).toHaveCSS('position','fixed');
+ await expect(pointer).toHaveCSS('width','24px');
+ const cursor=await pointer.boundingBox();
+ expect(cursor.x).toBeCloseTo(point.x,0);expect(cursor.y).toBeCloseTo(point.y,0);
+ expect(await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.id,point)).toBe('test-annotation-host');
+ await page.mouse.click(point.x,point.y);
+ const picked=await page.evaluate(()=>window.annotationHost.picks.at(-1));
+ expect(picked.metadata.resourceId).toBe('counter');expect(picked.role).toBe('android-element');
+ expect((await(await request.get('http://127.0.0.1:18378/actions')).json()).length).toBe(before);
+ expect(await page.evaluate(()=>window.annotationHost.violations)).toEqual([]);
 });

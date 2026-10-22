@@ -1,6 +1,6 @@
 {
   "name": "codex-build-android-apps",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Android development, emulator mirroring and annotations for Codex on macOS and Windows",
   "type": "module",

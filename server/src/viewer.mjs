@@ -49,7 +49,10 @@ export async function createViewer({ android, serial, project, port = 0, assets 
   const server = http.createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store'); res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self' ws://127.0.0.1:* ws://localhost:*; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
+    // The desktop annotation host inserts <style> elements, including inside its
+    // shadow root. Blocking them hides its replacement cursor after it suppresses
+    // the system pointer. Allow style elements while keeping scripts restricted.
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; style-src-elem 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws://127.0.0.1:* ws://localhost:*; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
     try {
       if (!allowedHost(req.headers.host)) return json(res, { error: 'Invalid host' }, 403);
       const url = new URL(req.url, origin);
