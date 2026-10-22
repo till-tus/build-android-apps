@@ -5,7 +5,7 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import { chromium } from '@playwright/test';
 import { Android, buildProject } from '../server/src/android.mjs';
-import { createProject, launchPreview } from '../server/src/project.mjs';
+import { createProject, launchPreview, watchProject } from '../server/src/project.mjs';
 import { createViewer } from '../server/src/viewer.mjs';
 import { delay } from '../server/src/process.mjs';
 const android = new Android(), serial = await android.device(process.env.ANDROID_TEST_SERIAL);
@@ -36,7 +36,18 @@ try {
   const logs = await android.logcat(serial, { app: project.app, lines: 300, level: 'E' }); assert.ok(!logs.stdout.includes('FATAL EXCEPTION'), logs.stdout);
   await android.capture(serial, { kind: 'trace', seconds: 2, output: path.join(output, 'journey.perfetto-trace') });
   await android.capture(serial, { kind: 'video', seconds: 2, output: path.join(output, 'journey.mp4') });
-  const summary = { platform: process.platform, serial, generatedProjectBuilt: true, nativeCounterInteraction: true, composeSemantics: true, browserInspection: true, previewLaunchedWithoutCrash: true, traceCaptured: true, videoCaptured: true, annotationContract: 'See Playwright tests; native host must be checked in Codex.' };
+  await android.capture(serial, { kind: 'heap', app: project.app, output: path.join(output, 'app.hprof') });
+  const controller = new AbortController(); let reloads = 0, watchLog = '';
+  const watching = watchProject(android, { project: directory, serial, app: project.app }, { signal: controller.signal, onOutput: text => { watchLog = (watchLog + text).slice(-6000); if (text.startsWith('Reloaded ')) reloads++; } });
+  const waitReload = async target => { const start = Date.now(); while (reloads < target) { if (Date.now() - start > 90_000) throw new Error(`Watch reload timed out: ${watchLog}`); await delay(250); } };
+  try {
+    await waitReload(1);
+    const source = path.join(directory, 'app/src/main/java/dev/codex/androidlab/MainActivity.kt');
+    await writeFile(source, (await readFile(source, 'utf8')).replace('Built with Jetpack Compose', 'Reload verified'));
+    await waitReload(2); await delay(500);
+    assert.ok((await android.inspect(serial, { fresh: true })).nodes.some(n => n.text === 'Reload verified'), 'An actual source edit is rebuilt, installed and rendered');
+  } finally { controller.abort(); await watching; }
+  const summary = { platform: process.platform, serial, generatedProjectBuilt: true, nativeCounterInteraction: true, composeSemantics: true, browserInspection: true, previewLaunchedWithoutCrash: true, traceCaptured: true, videoCaptured: true, heapCaptured: true, sourceWatchReloadVerified: true, annotationContract: 'See Playwright tests; native host must be checked in Codex.' };
   await writeFile(path.join(output, 'result.json'), JSON.stringify(summary, null, 2)); console.log(JSON.stringify(summary, null, 2));
 } catch (error) {
   if (page && !page.isClosed()) { await page.screenshot({ path: path.join(output, 'failure.png') }).catch(() => {}); console.error((await page.locator('body').innerText()).slice(0, 3000)); }
