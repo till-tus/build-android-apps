@@ -38,6 +38,7 @@ test('real JVM: attach, pause, source breakpoint, stack, step twice, clear and d
     let output = ''; child.stdout.on('data', chunk => { output += chunk; }); child.stderr.on('data', chunk => { output += chunk; });
     const port = await until(() => output.match(/Listening for transport dt_socket at address: (\d+)/)?.[1]);
     client = await new DebugClient().connect(Number(port));
+    await until(() => client.events.some(e => e.kind === 90)); // VM events need not precede the IDSizes reply.
     assert.equal(client.paused, true); await client.control('resume');
     const bp = await until(async () => { try { return await client.breakpoint('DebugFixture', 5); } catch (e) { if (/No executable/.test(e.message)) return false; throw e; } });
     const hit = await until(() => client.events.find(e => e.kind === 2));
@@ -68,4 +69,16 @@ test('failed attach removes only its allocated adb forward', async () => {
   const debuggers = new Debuggers(android);
   await assert.rejects(debuggers.attach('selected', 'dev.test.app'));
   assert.deepEqual(calls.at(-1), { serial: 'selected', args: ['forward', '--remove', 'tcp:1'] }); assert.equal(debuggers.sessions.size, 0);
+});
+
+test('overlapping debugger attaches reserve the device and shutdown waits for owned cleanup', async () => {
+  let release; const calls = [];
+  const android = { device: async () => 'selected', shell: async (_, args) => args[0] === 'pidof' ? new Promise(resolve => { release = () => resolve({ stdout: '123' }); }) : { stdout: 'uid=1' }, adb: async (serial, args) => { calls.push({ serial, args }); return { stdout: '1' }; } };
+  const debuggers = new Debuggers(android), pending = debuggers.attach('selected', 'dev.test.app').catch(e => e);
+  await until(() => Boolean(release));
+  await assert.rejects(debuggers.attach('selected', 'dev.other.app'), /already owns or is attaching/);
+  let closed = false; const closing = debuggers.close().then(() => { closed = true; });
+  await delay(20); assert.equal(closed, false); release(); await pending; await closing;
+  assert.equal(closed, true); assert.deepEqual(calls.at(-1).args, ['forward', '--remove', 'tcp:1']);
+  await assert.rejects(debuggers.attach('selected', 'dev.test.app'), /shutting down/);
 });

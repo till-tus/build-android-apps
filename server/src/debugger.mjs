@@ -205,11 +205,16 @@ export class DebugClient {
 }
 
 export class Debuggers {
-  constructor(android) { this.android = android; this.sessions = new Map(); }
+  constructor(android) { this.android = android; this.sessions = new Map(); this.starting = new Map(); this.closing = false; }
   async attach(serial, app) {
     serial = await this.android.device(serial); packageName(app);
-    if ([...this.sessions.values()].some(s => s.serial === serial)) throw new Error('This server already owns a debugger on this device; detach it first');
-    if (this.sessions.size >= 4) throw new Error('At most four debugger sessions may be attached');
+    if (this.closing) throw new Error('Debugger server is shutting down');
+    if (this.starting.has(serial) || [...this.sessions.values()].some(s => s.serial === serial)) throw new Error('This server already owns or is attaching a debugger on this device; detach it first');
+    if (this.sessions.size + this.starting.size >= 4) throw new Error('At most four debugger sessions may be attached');
+    const operation = this.attachSelected(serial, app); this.starting.set(serial, operation);
+    try { return await operation; } finally { this.starting.delete(serial); }
+  }
+  async attachSelected(serial, app) {
     const pid = (await this.android.shell(serial, ['pidof', '-s', app])).stdout.trim();
     if (!/^\d+$/.test(pid)) throw new Error('Launch the debuggable app before attaching');
     await this.android.shell(serial, ['run-as', app, 'id']);
@@ -228,5 +233,5 @@ export class Debuggers {
     finally { this.sessions.delete(session); await this.android.adb(owned.serial, ['forward', '--remove', `tcp:${owned.port}`]).catch(() => {}); }
     return { detached: session };
   }
-  async close() { await Promise.allSettled([...this.sessions.keys()].map(s => this.detach(s))); }
+  async close() { this.closing = true; await Promise.allSettled([...this.starting.values()]); await Promise.allSettled([...this.sessions.keys()].map(s => this.detach(s))); }
 }

@@ -4,7 +4,7 @@
 
 Validated on Windows x64 with Node 24.18.0, Android Studio's JBR 21.0.10, Chromium 156 and the official native Perfetto v58.2 processor. Local verification covers:
 
-- 29 Node tests (including real JVM breakpoint/stack/local/step/detach and real captured JVM HPROF ownership-path tests) and five Chromium UI tests. The optional native Perfetto test is enabled with `ANDROID_PLUGIN_TRACE_PROCESSOR`; other environments explicitly skip it if absent.
+- 30 Node tests (including real JVM breakpoint/stack/local/step/detach, overlapping attach/shutdown cleanup and real captured JVM HPROF ownership-path tests) and five Chromium UI tests. The optional native Perfetto test is enabled with `ANDROID_PLUGIN_TRACE_PROCESSOR`; other environments explicitly skip it if absent. The JVM test waits for the asynchronous VM-start event, which can arrive after the IDSizes reply on Windows/Node 22.
 - The rebuilt bundled MCP server advertises all 39 tools, validates schemas and survives invalid calls.
 - A 20-event wheel burst becomes one 80 ms swipe, with one wheel request in flight. Cancellation, new gestures after cancellation and switching to inspection are covered.
 - Synthetic-device PNG delivery avoids the old fixed 250 ms delay, concurrent capture requests coalesce, and viewer input does not repeat device discovery. The H.264 parser releases a previous frame upon receiving the next slice header. Decoder congestion/keyframe recovery and encoder-to-PNG fallback are browser-tested with a decoder double.
