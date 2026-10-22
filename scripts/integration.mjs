@@ -13,10 +13,25 @@ import { analyzeHeap } from '../server/src/heap.mjs';
 import { frameSummary, analyzeTrace } from '../server/src/performance.mjs';
 const android = new Android(), serial = await android.device(process.env.ANDROID_TEST_SERIAL);
 const output = path.resolve('artifacts/integration'); await mkdir(output, { recursive: true });
+const environmentWarnings = [];
 async function waitForTree(predicate, label, timeout = 45_000) {
   const start = Date.now(); let tree, lastError;
   while (Date.now() - start < timeout) {
-    try { tree = await android.inspect(serial, { fresh: true }); if (predicate(tree)) return tree; }
+    try {
+      tree = await android.inspect(serial, { fresh: true });
+      const systemAnr = tree.nodes.some(n => n.packageName === 'android' && n.resourceId === 'android:id/alertTitle' && /^System UI (?:isn't|is not) responding$/.test(n.text));
+      if (systemAnr && process.env.CI === 'true' && environmentWarnings.length < 3) {
+        const wait = tree.nodes.find(n => n.packageName === 'android' && n.resourceId === 'android:id/aerr_wait');
+        if (wait?.bounds) {
+          const warning = 'Hosted emulator System UI ANR: selecting Wait; app assertions remain required.';
+          environmentWarnings.push(warning); console.warn(warning);
+          await writeFile(path.join(output, `system-ui-anr-${environmentWarnings.length}.png`), await android.screenshot(serial));
+          await android.input(serial, { type: 'tap', x: Math.round(wait.bounds.left + wait.bounds.width / 2), y: Math.round(wait.bounds.top + wait.bounds.height / 2) });
+          await delay(500); continue;
+        }
+      }
+      if (predicate(tree) && !systemAnr) return tree;
+    }
     catch (error) { lastError = error.message; }
     await delay(500);
   }
@@ -88,7 +103,7 @@ try {
     await waitReload(2);
     assert.ok((await waitForTree(t => t.nodes.some(n => n.text === 'Reload verified'), 'the rebuilt source edit')).nodes.some(n => n.text === 'Reload verified'), 'An actual source edit is rebuilt, installed and rendered');
   } finally { controller.abort(); await watching; }
-  const summary = { platform: process.platform, serial, generatedProjectBuilt: true, nativeCounterInteraction: true, composeSemantics: true, browserInspection: true, debuggerBreakpointStackAndLocals: true, androidHeapAnalyzed: true, traceAnalyzed: Boolean(process.env.ANDROID_PLUGIN_TRACE_PROCESSOR), previewLaunchedWithoutCrash: true, traceCaptured: true, videoCaptured: true, heapCaptured: true, sourceWatchReloadVerified: true, annotationContract: 'See Playwright tests; native host must be checked in Codex.' };
+  const summary = { platform: process.platform, serial, environmentWarnings, generatedProjectBuilt: true, nativeCounterInteraction: true, composeSemantics: true, browserInspection: true, debuggerBreakpointStackAndLocals: true, androidHeapAnalyzed: true, traceAnalyzed: Boolean(process.env.ANDROID_PLUGIN_TRACE_PROCESSOR), previewLaunchedWithoutCrash: true, traceCaptured: true, videoCaptured: true, heapCaptured: true, sourceWatchReloadVerified: true, annotationContract: 'See Playwright tests; native host must be checked in Codex.' };
   await writeFile(path.join(output, 'result.json'), JSON.stringify(summary, null, 2)); console.log(JSON.stringify(summary, null, 2));
 } catch (error) {
   if (page && !page.isClosed()) { await page.screenshot({ path: path.join(output, 'failure.png') }).catch(() => {}); console.error((await page.locator('body').innerText()).slice(0, 3000)); }
