@@ -2,7 +2,7 @@ import { pick, metadata, connectAnnotations } from './annotations.js';
 const $ = id => document.getElementById(id), canvas = $('screen'), ctx = canvas.getContext('2d', { alpha: false });
 const token = location.hash.slice(1);
 const state = { serial: '', width: 1080, height: 1920, tree: { nodes: [], capturedAt: 0 }, selected: null, treeError: undefined };
-let inspecting = false, pointer, decoder, socket, reconnectTimer, noticeTimer, annotationTree, frozen = false, lastVideoAt = 0, forcePng = false, connectionGeneration = 0;
+let inspecting = false, pointer, decoder, socket, reconnectTimer, noticeTimer, annotationSnapshot, frozen = false, lastVideoAt = 0, forcePng = false, connectionGeneration = 0;
 function notice(message) { $('notice').textContent = message; $('notice').hidden = false; clearTimeout(noticeTimer); noticeTimer = setTimeout(() => { $('notice').hidden = true; }, 6500); }
 async function api(endpoint, value) {
   const res = await fetch(`/api/${endpoint}`, { method: value === undefined ? 'GET' : 'POST', headers: { Authorization: `Bearer ${token}`, ...(value === undefined ? {} : { 'Content-Type': 'application/json' }) }, body: value === undefined ? undefined : JSON.stringify(value) });
@@ -12,8 +12,9 @@ async function api(endpoint, value) {
 const input = value => api('input', value).catch(error => notice(error.message));
 function layout() {
   const area = $('stage'); const usableWidth = Math.max(40, area.clientWidth - 28), usableHeight = Math.max(40, area.clientHeight - 28);
-  const scale = Math.min(usableWidth / state.width, usableHeight / state.height);
-  $('screen-wrap').style.width = `${Math.floor(state.width * scale)}px`; $('screen-wrap').style.height = `${Math.floor(state.height * scale)}px`;
+  const dimensions = annotationSnapshot || state;
+  const scale = Math.min(usableWidth / dimensions.width, usableHeight / dimensions.height);
+  $('screen-wrap').style.width = `${Math.floor(dimensions.width * scale)}px`; $('screen-wrap').style.height = `${Math.floor(dimensions.height * scale)}px`;
   highlight(state.selected); annotations?.invalidate();
 }
 function draw(frame, width, height) {
@@ -26,8 +27,8 @@ function screenPoint(event) {
 }
 function highlight(node) {
   const box = $('selection'); if (!node?.bounds) { box.hidden = true; return; }
-  const r = canvas.getBoundingClientRect(), b = node.bounds;
-  box.hidden = false; Object.assign(box.style, { left: `${b.left / state.width * r.width}px`, top: `${b.top / state.height * r.height}px`, width: `${b.width / state.width * r.width}px`, height: `${b.height / state.height * r.height}px` });
+  const r = canvas.getBoundingClientRect(), b = node.bounds, dimensions = annotationSnapshot || state;
+  box.hidden = false; Object.assign(box.style, { left: `${b.left / dimensions.width * r.width}px`, top: `${b.top / dimensions.height * r.height}px`, width: `${b.width / dimensions.width * r.width}px`, height: `${b.height / dimensions.height * r.height}px` });
 }
 async function select(node) {
   state.selected = node; highlight(node); if (!node) { $('inspector').hidden = true; layout(); return; }
@@ -38,9 +39,10 @@ async function select(node) {
   $('sources').hidden = true; layout();
   try { const { source } = await api('source', { id: node.id }); if (state.selected?.id !== node.id) return; node.source = source; const cached = state.tree.nodes.find(n => n.id === node.id); if (cached) cached.source = source; if (source.length) { $('sources').hidden = false; $('source-values').textContent = source.map(s => `${s.location}\n${s.snippet}`).join('\n\n'); layout(); } } catch { /* Source candidates are optional. */ }
 }
-const annotations = connectAnnotations({ canvas, button: $('annotate'), getState: () => ({ ...state, tree: annotationTree || state.tree }),
-  onSelection: id => { const node = (annotationTree || state.tree).nodes.find(n => n.id === id); highlight(node); },
-  onMode: active => { frozen = active; annotationTree = active ? structuredClone(state.tree) : null; if (!active) { highlight(state.selected); api('inspect', {}).then(t => { state.tree = t; }).catch(() => {}); } }
+const annotations = connectAnnotations({ canvas, button: $('annotate'), getState: () => annotationSnapshot || state,
+  onUnavailable: () => notice('Annotation activation was declined by the host. Check this page’s annotation permissions in Site tools.'),
+  onSelection: id => { const node = (annotationSnapshot || state).tree.nodes.find(n => n.id === id); highlight(node); },
+  onMode: active => { frozen = active; annotationSnapshot = active ? { ...state, tree: structuredClone(state.tree), snapshotAt: Date.now() } : null; if (!active) { highlight(state.selected); api('inspect', {}).then(t => { state.tree = t; }).catch(() => {}); } }
 });
 new ResizeObserver(layout).observe($('stage'));
 $('inspect').onclick = () => { inspecting = !inspecting; document.body.classList.toggle('inspecting', inspecting); $('inspect').setAttribute('aria-pressed', String(inspecting)); if (inspecting) api('inspect', {}).then(t => { state.tree = t; if (state.treeError) notice('Accessibility hierarchy is unavailable; try refreshing after animations settle.'); }).catch(e => notice(e.message)); else select(null); };

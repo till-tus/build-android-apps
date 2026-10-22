@@ -22,7 +22,7 @@ export function metadata(node, serial, capturedAt) {
   }
   return result;
 }
-export function connectAnnotations({ canvas, getState, onSelection, onMode, button }) {
+export function connectAnnotations({ canvas, getState, onSelection, onMode, button, onUnavailable = () => {} }) {
   const api = document.oai?.annotation;
   let active = Boolean(api?.isActive?.());
   const surface = api?.registerSurface?.({
@@ -32,7 +32,7 @@ export function connectAnnotations({ canvas, getState, onSelection, onMode, butt
       if (!state.width || !state.height || !rect.width || !rect.height || clientX < rect.left || clientY < rect.top || clientX >= rect.right || clientY >= rect.bottom) return null;
       const x = (clientX - rect.left) / rect.width * state.width, y = (clientY - rect.top) / rect.height * state.height;
       // Use the cached tree synchronously to stay within the host's 250ms deadline.
-      const node = !state.treeError && Date.now() - state.tree.capturedAt < 15_000 ? pick(state.tree.nodes, x, y) : null;
+      const node = !state.treeError && (state.snapshotAt || Date.now()) - state.tree.capturedAt < 15_000 ? pick(state.tree.nodes, x, y) : null;
       if (!node) return { id: `screen-${Math.round(x)}-${Math.round(y)}`, name: 'Android screen region', role: 'android-screen', metadata: { device: state.serial, x: String(Math.round(x)), y: String(Math.round(y)), hierarchy: 'No current accessibility node' }, rect: { x: clientX - 12, y: clientY - 12, width: 24, height: 24 } };
       const b = node.bounds, sx = rect.width / state.width, sy = rect.height / state.height;
       return { id: node.id, name: node.text || node.label || node.contentDescription || node.resourceId || node.className, role: 'android-element', metadata: metadata(node, state.serial, state.tree.capturedAt),
@@ -43,7 +43,7 @@ export function connectAnnotations({ canvas, getState, onSelection, onMode, butt
   const modeChange = event => { active = Boolean(event.detail.active); onMode(active); button.setAttribute('aria-pressed', String(active)); };
   document.addEventListener('oaiannotationmodechange', modeChange);
   if (typeof api?.toggle === 'function' && typeof api?.isActive === 'function') {
-    button.hidden = false; button.setAttribute('aria-pressed', String(active)); button.onclick = () => api.toggle(!api.isActive());
+    button.hidden = false; button.setAttribute('aria-pressed', String(active)); button.onclick = () => { const result = api.toggle(!api.isActive()); if (!result?.accepted) onUnavailable(); };
   }
   onMode(active);
   return { get active() { return active; }, invalidate() { surface?.invalidate(); }, dispose() { surface?.dispose(); document.removeEventListener('oaiannotationmodechange', modeChange); } };

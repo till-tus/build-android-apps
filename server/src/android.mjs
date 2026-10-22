@@ -164,7 +164,8 @@ export class Android {
   async frames(serial, app, reset = false) { return this.shell(await this.device(serial), ['dumpsys', 'gfxinfo', packageName(app), reset ? 'reset' : 'framestats']); }
   async capture(serial, { kind = 'trace', seconds = 10, output, app, signal }) {
     serial = await this.device(serial); integer(seconds, 1, kind === 'video' ? 180 : 60, 'Seconds');
-    const remote = `/data/local/tmp/codex-${randomUUID()}.${kind === 'video' ? 'mp4' : kind === 'heap' ? 'hprof' : 'perfetto-trace'}`;
+    // traced's SELinux domain cannot write shell_data_file under /data/local/tmp.
+    const remote = `${kind === 'trace' ? '/data/misc/perfetto-traces' : '/data/local/tmp'}/codex-${randomUUID()}.${kind === 'video' ? 'mp4' : kind === 'heap' ? 'hprof' : 'perfetto-trace'}`;
     await mkdir(path.dirname(path.resolve(output)), { recursive: true });
     try {
       if (kind === 'video') await this.shell(serial, ['screenrecord', '--time-limit', String(seconds), remote], { timeout: (seconds + 15) * 1000, signal });

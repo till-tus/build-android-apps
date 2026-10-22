@@ -96,17 +96,20 @@ export async function createViewer({ android, serial, project, port = 0, assets 
       error => { video?.stop(); video = null; codec = undefined; for (const c of clients) c.mode = 'png'; broadcast({ type: 'fallback', message: error.message }); });
     video.start(width, height).catch(error => { video?.stop(); video = null; broadcast({ type: 'fallback', message: error.message }); for (const c of clients) c.mode = 'png'; });
   }
-  wss.on('connection', ws => {
+  wss.on('connection', async ws => {
     clients.add(ws); ws.mode = 'png'; ws.needsKey = true;
+    ws.on('error', () => {});
+    ws.on('close', () => { clients.delete(ws); if (!clients.size) { video?.stop(); video = null; codec = undefined; } });
+    // Reopening a viewer must not briefly show the image captured at server startup.
+    try { await capture(); } catch (e) { ws.send(JSON.stringify({ type: 'error', message: e.message })); ws.close(1011); return; }
+    if (ws.readyState !== WebSocket.OPEN) return;
     ws.send(JSON.stringify({ type: 'hello', serial, width, height })); ws.send(Buffer.concat([Buffer.from([2]), png]));
     ws.send(JSON.stringify({ type: 'hierarchy', ...tree }));
-    ws.on('error', () => {});
     ws.on('message', raw => { try {
       const message = JSON.parse(raw.toString());
       if (message.type === 'transport') { ws.mode = message.mode === 'h264' && enableVideo ? 'h264' : 'png'; if (ws.mode === 'h264') { if (codec) ws.send(JSON.stringify({ type: 'videoConfig', codec })); startVideo(); } }
       if (![...clients].some(c => c.mode === 'h264')) { video?.stop(); video = null; codec = undefined; }
     } catch { ws.close(1008, 'Invalid message'); } });
-    ws.on('close', () => { clients.delete(ws); if (!clients.size) { video?.stop(); video = null; codec = undefined; } });
     refreshTree();
   });
   let frameTimer, treeTimer;
