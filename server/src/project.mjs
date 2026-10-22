@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { buildProject, packageName, integer } from './android.mjs';
 import { exists } from './paths.mjs';
 import { delay } from './process.mjs';
+import { createHash } from 'node:crypto';
+import { createReadStream } from 'node:fs';
 
 export async function createProject({ directory, name = 'My App', app = 'com.example.myapp', minSdk = 26 }) {
   packageName(app); integer(minSdk, 26, 36, 'minSdk');
@@ -39,31 +41,39 @@ export async function launchPreview(android, serial, app, composable) {
 }
 
 /** Incremental build/install/relaunch loop, deliberately not advertised as VM hot swap. */
-export async function watchProject(android, { project, serial, app, tasks = ['assembleDebug'], composable }, { signal, onOutput }) {
+export async function watchProject(android, { project, serial, app, tasks = ['assembleDebug'], composable, debounceMs = 250 }, { signal, onOutput, build = buildProject }) {
   serial = await android.device(serial); packageName(app); const root = path.resolve(project);
-  let dirty = true, lastChange = 0;
+  integer(debounceMs, 75, 2000, 'Debounce');
+  let dirty = true, lastChange = 0, installedHash;
   const watcher = watch(root, { recursive: true, signal });
   const monitor = (async () => { try { for await (const event of watcher) {
     const file = String(event.filename || '');
-    if (/(^|[/\\])(build|\.gradle|\.git|\.idea|\.kotlin)([/\\]|$)/.test(file) || !/\.(kt|java|xml|kts|properties)$/.test(file)) continue;
+    if (/(^|[/\\])(build|\.gradle|\.git|\.idea|\.kotlin)([/\\]|$)/.test(file) || !(/\.(kt|java|xml|kts|gradle|properties|toml)$/.test(file) || /(^|[/\\])src[/\\]/.test(file))) continue;
     dirty = true; lastChange = Date.now();
   } } catch (e) { if (!signal.aborted) throw e; } })();
   // Observe failures even while the build is running.
   let monitorError; monitor.catch(e => { monitorError = e; });
   while (!signal.aborted) {
     if (monitorError) throw monitorError;
-    if (dirty && Date.now() - lastChange > 700) {
+    if (dirty && Date.now() - lastChange > debounceMs) {
       dirty = false;
       try {
-        onOutput('Building…\n'); const built = await buildProject(root, tasks, { signal, onOutput });
+        onOutput('Building…\n'); const built = await build(root, tasks, { signal, onOutput });
+        if (signal.aborted) break;
+        if (dirty) { onOutput('Source changed during build; rebuilding before installing stale output.\n'); continue; }
         const debugApks = built.apks.filter(p => /[/\\]outputs[/\\]apk[/\\]/.test(p) && p.endsWith('-debug.apk'));
         if (debugApks.length !== 1) throw new Error('Watch requires exactly one debug APK; build and install explicitly for multi-module or split APK projects.');
+        const hash = createHash('sha256');
+        for await (const chunk of createReadStream(debugApks[0])) hash.update(chunk);
+        const apkHash = hash.digest('hex');
+        if (dirty || signal.aborted) continue;
+        if (installedHash === apkHash) { onOutput('APK unchanged; preserving the running app and its state.\n'); continue; }
         await android.install(serial, debugApks);
         if (composable) await launchPreview(android, serial, app, composable); else await android.launch(serial, app);
-        onOutput(`Reloaded ${app} at ${new Date().toISOString()}\n`);
+        installedHash = apkHash; onOutput(`Reloaded ${app} at ${new Date().toISOString()}\n`);
       } catch (e) { if (!signal.aborted) onOutput(`Build/reload failed: ${e.message}\n`); }
     }
-    await delay(250);
+    await delay(75);
   }
   await monitor; return { stopped: true };
 }

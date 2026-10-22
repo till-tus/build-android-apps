@@ -1,6 +1,6 @@
 # Build Android Apps
 
-A local Codex plugin for native Android development on **macOS and Windows**. It combines nine Android/Compose workflow skills with 27 MCP tools and an interactive emulator viewer in Codex's browser side panel.
+A local Codex plugin for native Android development on **macOS and Windows**. It combines nine Android/Compose workflow skills with 39 MCP tools and an interactive emulator viewer in Codex's browser side panel.
 
 The viewer streams a real device, forwards input, inspects Android accessibility elements, finds source candidates, and integrates with the host's native annotation surface API. No cloud service, API key, Android app account, FFmpeg, scrcpy, or npm install is required to **run the packaged plugin**.
 
@@ -31,6 +31,24 @@ Example prompts:
 - “Capture a Perfetto trace while I scroll this list and investigate the slow frames.”
 
 The agent discovers the SDK and project, chooses an explicit device, builds and installs the app, starts a viewer, and opens the exact local viewer URL in Codex's in-app browser. The crosshair selects Android elements. The pencil appears when native host annotations are available. Use Codex's annotation mode to select an element and send feedback into chat. The inspector's **Copy** button also exports element context.
+
+## New in 0.2.0
+
+- **More responsive preview:** wheel bursts merge into one short swipe with at most one wheel gesture in flight. Viewer input reuses its selected device instead of running `adb devices` for every event. PNG capture requests share one operation, with a capture-time-aware 15 fps ceiling instead of a fixed 250 ms pause. Video frames are released as soon as the next slice header arrives; congested decoders reset and wait for a keyframe, with PNG recovery if video cannot catch up. Drawing no longer relayouts the page on every frame.
+- **In-chat debugging:** attach to a running debuggable app, list threads, set line breakpoints on loaded JVM classes, pause/resume, step into/over/out, and inspect stacks and locals. Sessions own their ADB forward and detach on MCP shutdown. No target expressions or methods are evaluated.
+- **Local heap analysis:** read Android/Java HPROF files, compare class counts and payload bytes against a baseline, and inspect bounded field paths from GC roots to an exact target class. The analyzer excludes `Reference.referent` and never prints string/array contents. These paths identify ownership evidence; they are not dominator analysis or automatic leak proof.
+- **Performance summaries:** summarize app frame-duration percentiles; analyze captured Perfetto traces for per-thread scheduled CPU time, inclusive trace slices and FrameTimeline groups. Trace capture now explicitly includes process metadata and FrameTimeline (Android 12+) and can enable the selected app's atrace events.
+- **Better source candidates and watch:** exact test-tag/resource references outrank incidental text; visible string resources resolve to call sites. Watch includes resource files and version catalogs, skips superseded builds, and preserves the running app when the APK hash is unchanged. Changed APKs still reinstall and relaunch.
+
+### Debugging from a Codex chat
+
+Use `debug_attach` with the selected serial and application ID, then retain its session ID for all `debug_*` calls. Launch the screen first: `debug_breakpoint` requires an already loaded class and executable line. A top-level Kotlin function often belongs to `package.ScreenKt`, rather than `package.Screen`. After reproducing the action, read `debug_status`, use the event's thread ID with `debug_stack`/`debug_locals`, then resume or step. Breakpoint events suspend all app threads. Always `debug_detach` when finished; do not concurrently attach Android Studio to the same process. JVM source line tables are reported as supplied, so inline Kotlin and Compose-generated code can still require SMAP interpretation. Locals need debug symbols; object/string locals are returned as IDs.
+
+### Analyzing captured artifacts
+
+`heap_analyze` accepts `input`, optional `baseline` and optional exact `targetClass`. It accepts uncompressed HPROF up to 256 MiB and 500,000 objects, examines up to five target instances and bounds graph traversal. Use Android Studio for larger dumps, dominators, full retained-size analysis or unsupported formats. Payload bytes exclude object headers, alignment and native memory.
+
+`frame_summary` reads existing `gfxinfo` samples without resetting them. Its duration buckets are not refresh-aware jank measurements. `trace_analyze` accepts local `input`, application ID and an absolute native Perfetto executable through `processor` or `ANDROID_PLUGIN_TRACE_PROCESSOR`. Install a current native processor from the [official Perfetto releases](https://github.com/google/perfetto/releases) (v58.2 is tested; the binary may be named `trace_processor_shell`). Analysis runs locally and does not upload traces or download a processor automatically. Missing events are reported as missing data. Scheduled CPU time and inclusive slices are not method-sampling flamegraphs.
 
 For direct CLI use, from this checkout:
 
@@ -67,8 +85,8 @@ The [architecture and capability mapping](docs/architecture.md) describe how the
 - Native annotations require a compatible host exposing `document.oai.annotation` on a top-level localhost page and the user's annotation permissions. Ordinary browsers support the viewer and inspector. Automated tests exercise the documented host API contract with a test double; a real chat attachment must be verified in the target Codex release.
 - Android UI inspection sees accessibility semantics. Custom canvases, WebView internals and merged Compose nodes may expose less detail; the annotation then carries screen coordinates. Source links are explicitly labeled text/resource/test-tag candidates.
 - The core input transport supports taps, swipes, long presses, wheel scrolling, ASCII typing/paste and navigation keys. It does not provide multi-touch, Unicode injection, audio streaming or gamepad support.
-- `watch` rebuilds, installs and relaunches a single debug APK. It is not VM hot swap or Android Studio Live Edit. Previews require an installed debug host and a top-level no-argument composable; the generated app includes one.
-- Tools capture Perfetto/HPROF artifacts; analysis and JDWP breakpoint debugging use Android Studio or an appropriate analyzer. No simulated profiling results are reported.
+- `watch` avoids unchanged APK restarts but rebuilds, installs and relaunches changed APKs. VM hot swap/Android Studio Live Edit is not implemented. Previews require an installed debug host and a top-level no-argument composable; the generated app includes one.
+- JDWP debugging requires a running debuggable app with debug symbols and loaded classes. Kotlin inline source remapping, expression evaluation, deferred breakpoints and native debugging remain outside this debugger. Heap analysis is bounded and does not compute dominators; trace analysis requires a separately installed native Perfetto processor. No simulated profiling results are reported.
 - Emulator support depends on the installed SDK, matching image architecture and host hypervisor. Hosted Windows CI tests the Node/MCP/viewer and SDK launch paths; full device interaction is exercised separately on a Linux emulator.
 
 ## Development and validation

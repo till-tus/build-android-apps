@@ -13,6 +13,13 @@ export class AnnexB {
     }
     for (let i = 0; i + 1 < starts.length; i++) this.nal(this.pending.subarray(starts[i][0] + starts[i][1], starts[i + 1][0]));
     if (starts.length) this.pending = Buffer.from(this.pending.subarray(starts.at(-1)[0]));
+    // The next slice header is enough to release the previous access unit. Do
+    // not wait for the entire next NAL (or another device frame) to arrive.
+    const offset = this.pending[2] === 1 ? 3 : 4;
+    if (this.hasVcl && this.pending.length > offset + 1) {
+      const type = this.pending[offset] & 31;
+      if ([7, 8, 9].includes(type) || ([1, 5].includes(type) && (this.pending[offset + 1] & 128))) this.emit();
+    }
   }
   nal(nal) {
     if (!nal.length) return; const type = nal[0] & 31;

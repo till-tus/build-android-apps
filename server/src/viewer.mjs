@@ -26,7 +26,7 @@ async function body(req) {
 export async function createViewer({ android, serial, project, port = 0, assets = viewerRoot, enableVideo = true }) {
   serial = await android.device(serial);
   const token = randomBytes(32).toString('hex'); const clients = new Set(); let tree = { nodes: [], capturedAt: 0 }, treeError;
-  let png, width = 1080, height = 1920, closed = false, video, codec, refreshPromise, inputQueue = Promise.resolve(), inputCount = 0;
+  let png, width = 1080, height = 1920, closed = false, video, codec, refreshPromise, capturePromise, inputQueue = Promise.resolve(), inputCount = 0, inspectTimer, lastInputAt = 0;
   const sockets = new Set();
   const json = (res, value, code = 200) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(value)); };
   const broadcast = value => { for (const ws of clients) if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(value)); };
@@ -40,8 +40,12 @@ export async function createViewer({ android, serial, project, port = 0, assets 
     })();
     return refreshPromise;
   };
-  const capture = async () => {
-    png = await android.screenshot(serial); width = png.readUInt32BE(16); height = png.readUInt32BE(20); return png;
+  const capture = () => {
+    if (capturePromise) return capturePromise;
+    capturePromise = (async () => {
+      png = await android.screenshot(serial); width = png.readUInt32BE(16); height = png.readUInt32BE(20); return png;
+    })().finally(() => { capturePromise = undefined; });
+    return capturePromise;
   };
   // A real frame is required before returning a viewer URL.
   await capture();
@@ -64,9 +68,12 @@ export async function createViewer({ android, serial, project, port = 0, assets 
         if (req.method === 'POST' && url.pathname === '/api/input') {
           if (inputCount >= 20) return json(res, { error: 'Input queue is full' }, 429);
           const action = actionSchema.parse(await body(req)); inputCount++;
-          const operation = inputQueue.then(() => android.input(serial, action)); inputQueue = operation.catch(() => {});
+          lastInputAt = Date.now();
+          const operation = inputQueue.then(() => android.inputOnDevice ? android.inputOnDevice(serial, action) : android.input(serial, action)); inputQueue = operation.catch(() => {});
           try { await operation; } finally { inputCount--; }
-          setTimeout(() => refreshTree(), 350); return json(res, { ok: true });
+          clearTimeout(inspectTimer);
+          inspectTimer = setTimeout(() => { if (clients.size && !closed && !inputCount) refreshTree(); }, 700);
+          return json(res, { ok: true });
         }
         if (req.method === 'POST' && url.pathname === '/api/inspect') { const result = await refreshTree(); return treeError ? json(res, { error: treeError }, 503) : json(res, result); }
         if (req.method === 'POST' && url.pathname === '/api/source') {
@@ -78,7 +85,7 @@ export async function createViewer({ android, serial, project, port = 0, assets 
       }
       if (req.method !== 'GET') return json(res, { error: 'Method not allowed' }, 405);
       const name = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
-      if (!['index.html', 'app.js', 'style.css', 'annotations.js', 'icon.svg'].includes(name)) return json(res, { error: 'Not found' }, 404);
+      if (!['index.html', 'app.js', 'wheel.js', 'style.css', 'annotations.js', 'icon.svg'].includes(name)) return json(res, { error: 'Not found' }, 404);
       res.setHeader('Content-Type', contentTypes[path.extname(name)]); res.end(await readFile(path.join(assets, name)));
     } catch (e) { json(res, { error: e.message }, e instanceof z.ZodError ? 400 : 500); }
   });
@@ -98,7 +105,7 @@ export async function createViewer({ android, serial, project, port = 0, assets 
     video = new VideoStream(serial,
       value => { codec = value; for (const c of clients) if (c.mode === 'h264') c.send(JSON.stringify({ type: 'videoConfig', codec })); },
       (frame, key) => { for (const c of clients) if (c.mode === 'h264' && c.readyState === WebSocket.OPEN) {
-        if (c.bufferedAmount > 2_000_000) { c.needsKey = true; continue; }
+        if (c.bufferedAmount > 512_000) { c.needsKey = true; continue; }
         if (c.needsKey && !key) continue; c.needsKey = false; c.send(Buffer.concat([Buffer.from([key ? 1 : 0]), frame]));
       } },
       error => { video?.stop(); video = null; codec = undefined; for (const c of clients) c.mode = 'png'; broadcast({ type: 'fallback', message: error.message }); });
@@ -123,17 +130,19 @@ export async function createViewer({ android, serial, project, port = 0, assets 
   let frameTimer, treeTimer;
   const frameLoop = async () => {
     if (closed) return;
+    const started = Date.now();
     try { if ([...clients].some(c => c.mode === 'png')) {
       const frame = await capture(); for (const c of clients) if (c.mode === 'png' && c.readyState === WebSocket.OPEN && c.bufferedAmount < 1_000_000) c.send(Buffer.concat([Buffer.from([2]), frame]));
     } } catch (e) { broadcast({ type: 'error', message: e.message }); }
-    if (!closed) frameTimer = setTimeout(frameLoop, 250);
+    // Cap at 15 fps, subtracting capture time instead of adding a fixed delay.
+    if (!closed) frameTimer = setTimeout(frameLoop, Math.max(0, 67 - (Date.now() - started)));
   };
   server.requestTimeout = 30_000; server.headersTimeout = 10_000;
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); });
   origin = `http://127.0.0.1:${server.address().port}`;
-  frameLoop(); treeTimer = setInterval(() => { if (clients.size) refreshTree(); }, 5000);
+  frameLoop(); treeTimer = setInterval(() => { if (clients.size && !inputCount && Date.now() - lastInputAt > 1000) refreshTree(); }, 5000);
   return { serial, project, url: `${origin}/#${token}`, origin,
-    async close() { closed = true; clearTimeout(frameTimer); clearInterval(treeTimer); video?.stop(); for (const ws of clients) ws.terminate(); wss.close(); await new Promise(resolve => { server.close(resolve); for (const socket of sockets) socket.destroy(); }); }
+    async close() { closed = true; clearTimeout(frameTimer); clearTimeout(inspectTimer); clearInterval(treeTimer); video?.stop(); for (const ws of clients) ws.terminate(); wss.close(); await new Promise(resolve => { server.close(resolve); for (const socket of sockets) socket.destroy(); }); }
   };
 }
 

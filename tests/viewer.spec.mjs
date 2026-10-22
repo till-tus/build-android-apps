@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { installAnnotationHost } from './annotation-host.mjs';
+import { png } from './fixtures.mjs';
+import path from 'node:path';
 async function session(request){return(await(await request.get('http://127.0.0.1:18378')).json()).url;}
 test('real rendered viewer draws a frame, forwards taps, inspects nodes and fits a narrow panel',async({page,request})=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(await session(request));
@@ -11,8 +13,43 @@ test('real rendered viewer draws a frame, forwards taps, inspects nodes and fits
  await page.mouse.click(b.x+b.width*100/360,b.y+b.height*160/720);
  await expect(page.getByRole('region',{name:'Element inspector'})).toBeVisible();await expect(page.locator('#properties')).toContainText('counter');
  await expect(page.locator('#properties')).not.toContainText('secret');
+ if(process.env.ANDROID_TEST_SCREENSHOTS)await page.screenshot({path:path.join(process.env.ANDROID_TEST_SCREENSHOTS,'preview-desktop.png')});
  await page.setViewportSize({width:320,height:720});await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- expect(errors).toEqual([]);await page.screenshot({path:'/tmp/android-plugin-viewer-test.png'}).catch(()=>{});
+ expect(errors).toEqual([]);
+ if(process.env.ANDROID_TEST_SCREENSHOTS)await page.screenshot({path:path.join(process.env.ANDROID_TEST_SCREENSHOTS,'preview-narrow.png')});
+});
+
+test('wheel bursts coalesce into a short swipe and entering inspection cancels queued gestures',async({page,request})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(await session(request));await expect(page.getByText('Connecting to Android…')).toBeHidden();
+ const actions=[];await page.route('**/api/input',async route=>{actions.push(route.request().postDataJSON());await route.continue();});
+ await page.locator('#screen').evaluate(canvas=>{const r=canvas.getBoundingClientRect();for(let i=0;i<20;i++)canvas.dispatchEvent(new WheelEvent('wheel',{clientX:r.left+r.width/2,clientY:r.top+r.height/2,deltaY:2,cancelable:true}));});
+ await expect.poll(()=>actions.length).toBe(1);expect(actions[0].duration).toBe(80);expect(actions[0].endY).toBeLessThan(actions[0].y);
+ await page.locator('#screen').evaluate(canvas=>{const r=canvas.getBoundingClientRect();canvas.dispatchEvent(new WheelEvent('wheel',{clientX:r.left+r.width/2,clientY:r.top+r.height/2,deltaY:2,cancelable:true}));document.getElementById('inspect').click();});
+ await expect(page.locator('#inspect')).toHaveAttribute('aria-pressed','true');
+ await page.getByRole('button',{name:'More actions'}).click();await page.getByRole('button',{name:'Refresh hierarchy'}).click();
+ await expect(page.getByRole('status')).toContainText('elements refreshed');expect(actions.length).toBe(1);expect(errors).toEqual([]);
+});
+
+test('video decoder congestion resynchronizes at a keyframe and explicit encoder failure selects PNG',async({page,request})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.addInitScript(()=>{
+  window.decoderStats={resets:0,keys:0};
+  window.EncodedVideoChunk=class {constructor(options){Object.assign(this,options);}};
+  window.VideoDecoder=class {state='unconfigured';decodeQueueSize=0;configure(){this.state='configured';}reset(){window.decoderStats.resets++;this.decodeQueueSize=0;this.state='unconfigured';}decode(chunk){this.decodeQueueSize++;if(chunk.type==='key')window.decoderStats.keys++;}close(){this.state='closed';}};
+ });
+ let stream;const transports=[];
+ await page.routeWebSocket('**/stream',ws=>{
+  stream=ws;ws.onMessage(raw=>{const message=JSON.parse(raw);if(message.type==='transport')transports.push(message.mode);});
+  ws.send(JSON.stringify({type:'hello',serial:'emulator-5554',width:360,height:720}));ws.send(Buffer.concat([Buffer.from([2]),png()]));
+ });
+ await page.goto(await session(request));await expect(page.getByText('Connecting to Android…')).toBeHidden();
+ await expect.poll(()=>transports.includes('h264')).toBe(true);
+ stream.send(JSON.stringify({type:'videoConfig',codec:'avc1.42001e'}));stream.send(Buffer.from([1,0x65,0x80]));
+ for(let i=0;i<12;i++)stream.send(Buffer.from([0,0x41,0x80]));
+ await expect.poll(()=>page.evaluate(()=>window.decoderStats.resets)).toBe(1);
+ stream.send(Buffer.from([1,0x65,0x80]));await expect.poll(()=>page.evaluate(()=>window.decoderStats.keys)).toBe(2);
+ stream.send(JSON.stringify({type:'fallback',message:'Encoder stopped; using screenshot transport'}));
+ await expect.poll(()=>transports.at(-1)).toBe('png');await expect(page.getByRole('status')).toContainText('Encoder stopped');expect(errors).toEqual([]);
 });
 test('native annotation contract maps scaled picks, carries metadata, freezes input and invalidates',async({page,request})=>{
  await page.addInitScript(()=>{let active=false;Object.defineProperty(document,'oai',{value:{annotation:{registerSurface(options){window.testSurface=options;return{invalidate(){window.invalidations=(window.invalidations||0)+1;},dispose(){}};},isActive(){return active;},toggle(value){active=value;document.dispatchEvent(new CustomEvent('oaiannotationmodechange',{detail:{active}}));return{accepted:true};}}}});});

@@ -119,7 +119,11 @@ export class Android {
     try { return await operation; } finally { this.dumps.delete(serial); }
   }
   async input(serial, action) {
-    serial = await this.device(serial); let args;
+    return this.inputOnDevice(await this.device(serial), action);
+  }
+  /** Viewer sessions resolve their serial once, avoiding an adb devices roundtrip per gesture. */
+  async inputOnDevice(serial, action) {
+    serialName(serial); let args;
     const coord = n => String(integer(n, 0, 32_768, 'Coordinate'));
     if (action.type === 'tap') args = ['input', 'tap', coord(action.x), coord(action.y)];
     else if (action.type === 'swipe') args = ['input', 'swipe', coord(action.x), coord(action.y), coord(action.endX), coord(action.endY), String(integer(action.duration ?? 300, 50, 5000, 'Duration'))];
@@ -180,7 +184,27 @@ export class Android {
           if (size > 0 && size === previous) { ready = true; break; } previous = size; await delay(500);
         }
         if (!ready) throw new Error('Heap dump did not finish within 30 seconds');
-      } else if (kind === 'trace') await this.shell(serial, ['perfetto', '-o', remote, '-t', `${seconds}s`, 'sched', 'freq', 'idle', 'am', 'wm', 'gfx', 'view', 'binder_driver'], { timeout: (seconds + 20) * 1000, signal });
+      } else if (kind === 'trace') {
+        if (app) packageName(app);
+        const config = `buffers { size_kb: 32768 fill_policy: RING_BUFFER }
+duration_ms: ${seconds * 1000}
+data_sources { config { name: "linux.ftrace" ftrace_config {
+  ftrace_events: "sched/sched_switch"
+  ftrace_events: "sched/sched_waking"
+  ftrace_events: "power/cpu_frequency"
+  ftrace_events: "power/cpu_idle"
+  atrace_categories: "am"
+  atrace_categories: "wm"
+  atrace_categories: "gfx"
+  atrace_categories: "view"
+  atrace_categories: "binder_driver"
+  ${app ? `atrace_apps: "${app}"` : ''}
+} } }
+data_sources { config { name: "linux.process_stats" process_stats_config { scan_all_processes_on_start: true } } }
+data_sources { config { name: "android.surfaceflinger.frametimeline" } }
+`;
+        await this.shell(serial, ['perfetto', '--txt', '-c', '-', '-o', remote], { input: config, timeout: (seconds + 20) * 1000, signal });
+      }
       else throw new Error('Invalid capture kind');
       await this.adb(serial, ['pull', remote, path.resolve(output)], { timeout: 120_000, signal });
       return { output: path.resolve(output), kind, serial };

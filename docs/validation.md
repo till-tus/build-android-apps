@@ -1,6 +1,20 @@
-# Validation — 22 October 2026
+# Validation
 
-## Local macOS / Apple Silicon
+## 0.2.0 — Windows, 23 October 2026
+
+Validated on Windows x64 with Node 24.18.0, Android Studio's JBR 21.0.10, Chromium 156 and the official native Perfetto v58.2 processor. Local verification covers:
+
+- 29 Node tests (including real JVM breakpoint/stack/local/step/detach and real captured JVM HPROF ownership-path tests) and five Chromium UI tests. The optional native Perfetto test is enabled with `ANDROID_PLUGIN_TRACE_PROCESSOR`; other environments explicitly skip it if absent.
+- The rebuilt bundled MCP server advertises all 39 tools, validates schemas and survives invalid calls.
+- A 20-event wheel burst becomes one 80 ms swipe, with one wheel request in flight. Cancellation, new gestures after cancellation and switching to inspection are covered.
+- Synthetic-device PNG delivery avoids the old fixed 250 ms delay, concurrent capture requests coalesce, and viewer input does not repeat device discovery. The H.264 parser releases a previous frame upon receiving the next slice header. Decoder congestion/keyframe recovery and encoder-to-PNG fallback are browser-tested with a decoder double.
+- Desktop (520×900) and narrow (320×720) rendered viewer checks cover canvas drawing, selection, input, annotation contracts, responsive bounds and page errors. These are fixture-device browser checks, not real-emulator latency measurements.
+- Real JVM HPROF parsing finds an expected static-owner field path. Synthetic Android 4/8-byte HPROF fixtures cover class growth, weak-reference exclusion, unreachable roots, truncation and object/edge limits. The official native processor reads a Chrome trace fixture and returns its real inclusive slice duration without inventing missing CPU/frame data.
+- Watch checks cover resource/version-catalog edits, unchanged APK state preservation and skipping superseded builds.
+
+This Windows machine has Java but no Android SDK, emulator or AVD. Real ART/JDWP, Android heap and changed trace-config checks run in the real-emulator CI job, which now tests breakpoint/stack/locals/detach, captured Android HPROF analysis and native Perfetto analysis. Inspect the [workflow for the release commit](https://github.com/till-tus/build-android-apps/actions/workflows/ci.yml) for its result. No local end-to-end Android speedup or native Codex annotation delivery is claimed. The user's installed 0.1.1 plugin is deliberately left unchanged while in use.
+
+## 0.1.1 — previous macOS / Apple Silicon evidence, 22 October 2026
 
 Verified with Node 25.6.1, Android Studio's JBR 21, Android Emulator 37.2.12, an API 36.1 arm64 Google APIs image and device `emulator-5554`.
 

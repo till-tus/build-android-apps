@@ -22,6 +22,10 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run check
@@ -49,6 +53,16 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run build
+      - name: Install pinned native trace processor for integration analysis
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/perfetto"
+          curl --fail --location --retry 3 https://github.com/google/perfetto/releases/download/v58.2/linux-amd64.zip -o "$RUNNER_TEMP/perfetto.zip"
+          echo "32c739f71b2d39721afd294c0b038f2499a44a71b5b6bcdd85b83faca0b240b9  $RUNNER_TEMP/perfetto.zip" | sha256sum --check
+          unzip -q "$RUNNER_TEMP/perfetto.zip" -d "$RUNNER_TEMP/perfetto"
+          chmod +x "$RUNNER_TEMP/perfetto/linux-amd64/trace_processor_shell"
+          echo "ANDROID_PLUGIN_TRACE_PROCESSOR=$RUNNER_TEMP/perfetto/linux-amd64/trace_processor_shell" >> "$GITHUB_ENV"
+      - run: node --test tests/analysis.test.mjs
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
