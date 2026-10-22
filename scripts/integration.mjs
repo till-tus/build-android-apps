@@ -13,6 +13,19 @@ import { analyzeHeap } from '../server/src/heap.mjs';
 import { frameSummary, analyzeTrace } from '../server/src/performance.mjs';
 const android = new Android(), serial = await android.device(process.env.ANDROID_TEST_SERIAL);
 const output = path.resolve('artifacts/integration'); await mkdir(output, { recursive: true });
+async function waitForTree(predicate, label, timeout = 45_000) {
+  const start = Date.now(); let tree, lastError;
+  while (Date.now() - start < timeout) {
+    try { tree = await android.inspect(serial, { fresh: true }); if (predicate(tree)) return tree; }
+    catch (error) { lastError = error.message; }
+    await delay(500);
+  }
+  // Capture evidence even when startup fails before the browser is created.
+  await writeFile(path.join(output, 'device-timeout.png'), await android.screenshot(serial)).catch(() => {});
+  await writeFile(path.join(output, 'hierarchy-timeout.json'), JSON.stringify({ label, tree, lastError }, null, 2));
+  await android.logcat(serial, { app: 'dev.codex.androidlab', lines: 300 }).then(log => writeFile(path.join(output, 'startup-logcat.txt'), log.stdout)).catch(() => {});
+  throw new Error(`Timed out waiting for ${label}; inspect the startup evidence artifacts.`);
+}
 const directory = await mkdtemp(path.join(os.tmpdir(), 'android-real-integration-'));
 const project = await createProject({ directory, name: 'Android Lab', app: 'dev.codex.androidlab' });
 const sourceFile = path.join(directory, 'app/src/main/java/dev/codex/androidlab/MainActivity.kt');
@@ -21,10 +34,10 @@ const sourceFile = path.join(directory, 'app/src/main/java/dev/codex/androidlab/
 await writeFile(sourceFile, (await readFile(sourceFile, 'utf8')).replace('count++', 'count = nextCount(count)') + '\nfun nextCount(value: Int): Int {\n    return value + 1\n}\n');
 const built = await buildProject(directory, ['assembleDebug'], { onOutput: text => process.stdout.write(text) });
 assert.equal(built.apks.length, 1); await android.install(serial, built.apks); await android.launch(serial, project.app);
-await delay(1800); let tree = await android.inspect(serial, { fresh: true });
+let tree = await waitForTree(t => t.nodes.some(n => n.resourceId === 'counter'), 'the Compose counter test tag');
 const counter = tree.nodes.find(n => n.resourceId === 'counter'); assert.ok(counter, 'Compose test tag exposed in the actual Android hierarchy');
 await android.input(serial, { type: 'tap', x: Math.round((counter.bounds.left + counter.bounds.right) / 2), y: Math.round((counter.bounds.top + counter.bounds.bottom) / 2) });
-await delay(400); tree = await android.inspect(serial, { fresh: true }); assert.ok(tree.nodes.some(n => n.text === 'Count: 1'), 'Native click updates app state');
+tree = await waitForTree(t => t.nodes.some(n => n.text === 'Count: 1'), 'the native counter update'); assert.ok(tree.nodes.some(n => n.text === 'Count: 1'), 'Native click updates app state');
 await writeFile(path.join(output, 'device.png'), await android.screenshot(serial));
 const viewer = await createViewer({ android, serial, project: directory }); const browser = await chromium.launch();
 const debuggers = new Debuggers(android);
@@ -51,7 +64,8 @@ try {
   const locals = await client.locals(hit.thread); assert.equal(locals.variables.find(v => v.name === 'value').value, 1);
   await debuggers.detach(debug.session); await tap; if (tapError) throw tapError;
   // Real screenshot proof does not establish native-host annotation support; that contract has its own browser test.
-  await launchPreview(android, serial, project.app, project.preview); await delay(800);
+  await launchPreview(android, serial, project.app, project.preview);
+  await waitForTree(t => t.nodes.some(n => n.text === 'Built with Jetpack Compose'), 'the Compose preview');
   const logs = await android.logcat(serial, { app: project.app, lines: 300, level: 'E' }); assert.ok(!logs.stdout.includes('FATAL EXCEPTION'), logs.stdout);
   await android.capture(serial, { kind: 'trace', app: project.app, seconds: 2, output: path.join(output, 'journey.perfetto-trace') });
   await android.capture(serial, { kind: 'video', seconds: 2, output: path.join(output, 'journey.mp4') });
@@ -71,8 +85,8 @@ try {
     await waitReload(1);
     const source = path.join(directory, 'app/src/main/java/dev/codex/androidlab/MainActivity.kt');
     await writeFile(source, (await readFile(source, 'utf8')).replace('Built with Jetpack Compose', 'Reload verified'));
-    await waitReload(2); await delay(500);
-    assert.ok((await android.inspect(serial, { fresh: true })).nodes.some(n => n.text === 'Reload verified'), 'An actual source edit is rebuilt, installed and rendered');
+    await waitReload(2);
+    assert.ok((await waitForTree(t => t.nodes.some(n => n.text === 'Reload verified'), 'the rebuilt source edit')).nodes.some(n => n.text === 'Reload verified'), 'An actual source edit is rebuilt, installed and rendered');
   } finally { controller.abort(); await watching; }
   const summary = { platform: process.platform, serial, generatedProjectBuilt: true, nativeCounterInteraction: true, composeSemantics: true, browserInspection: true, debuggerBreakpointStackAndLocals: true, androidHeapAnalyzed: true, traceAnalyzed: Boolean(process.env.ANDROID_PLUGIN_TRACE_PROCESSOR), previewLaunchedWithoutCrash: true, traceCaptured: true, videoCaptured: true, heapCaptured: true, sourceWatchReloadVerified: true, annotationContract: 'See Playwright tests; native host must be checked in Codex.' };
   await writeFile(path.join(output, 'result.json'), JSON.stringify(summary, null, 2)); console.log(JSON.stringify(summary, null, 2));
