@@ -16,7 +16,7 @@ async function until(fn, timeout = 8000) {
   throw new Error('Timed out waiting for debugger evidence');
 }
 
-test('real JVM: attach, pause, source breakpoint, stack, step twice, clear and detach', { timeout: 30_000 }, async t => {
+test('real JVM: attach, pause, source breakpoint, stack, step twice, clear and detach', { timeout: 150_000 }, async t => {
   let java, javac;
   try { java = await executable('java'); javac = path.join(path.dirname(java), process.platform === 'win32' ? 'javac.exe' : 'javac'); await access(javac); }
   catch { t.skip('JDK unavailable; CI installs Java explicitly'); return; }
@@ -33,10 +33,10 @@ test('real JVM: attach, pause, source breakpoint, stack, step twice, clear and d
   }
 }
 `);
-    await run(javac, ['-g', path.join(directory, 'DebugFixture.java')]);
+    await run(javac, ['-g', path.join(directory, 'DebugFixture.java')], { timeout: 60_000 });
     child = spawn(java, ['-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=127.0.0.1:0', '-cp', directory, 'DebugFixture'], { windowsHide: true, shell: false });
     let output = ''; child.stdout.on('data', chunk => { output += chunk; }); child.stderr.on('data', chunk => { output += chunk; });
-    const port = await until(() => output.match(/Listening for transport dt_socket at address: (\d+)/)?.[1]);
+    const port = await until(() => output.match(/Listening for transport dt_socket at address: (\d+)/)?.[1], 30_000);
     client = await new DebugClient().connect(Number(port));
     await until(() => client.events.some(e => e.kind === 90)); // VM events need not precede the IDSizes reply.
     assert.equal(client.paused, true); await client.control('resume');

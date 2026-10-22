@@ -14,6 +14,8 @@ Validated on Windows x64 with Node 24.18.0, Android Studio's JBR 21.0.10, Chromi
 
 The real-emulator integration waits for actual Compose semantics after launch, clicks, previews and reloads, rather than relying on fixed startup delays. A slow hosted runner exposed the old 1.8-second startup assumption; timeouts now retain a device screenshot, hierarchy and app logcat for diagnosis. The same debugger/heap/trace/source-watch integration completed successfully on the first 0.2.0 run; later runs are tracked per commit in Actions.
 
+External JVM fixture compilation/startup/capture has a separate bounded integration-test budget (150 seconds overall, 60 seconds per compiler/capture subprocess) for cold Windows runners. Runtime JDWP command limits and the assertions are unchanged.
+
 This Windows machine has Java but no Android SDK, emulator or AVD. Real ART/JDWP, Android heap and changed trace-config checks run in the real-emulator CI job, which now tests breakpoint/stack/locals/detach, captured Android HPROF analysis and native Perfetto analysis. Inspect the [workflow for the release commit](https://github.com/till-tus/build-android-apps/actions/workflows/ci.yml) for its result. No local end-to-end Android speedup or native Codex annotation delivery is claimed. The user's installed 0.1.1 plugin is deliberately left unchanged while in use.
 
 ## 0.1.1 — previous macOS / Apple Silicon evidence, 22 October 2026

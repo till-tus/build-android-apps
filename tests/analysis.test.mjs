@@ -43,7 +43,7 @@ test('heap baseline compares class counts without exporting object contents', as
     assert.equal(result.growth.find(c => c.className === 'LeakedScreen').countDelta, 1);
   } finally { await rm(temp, { recursive: true, force: true }); }
 });
-test('real JVM HPROF: reads a locally captured heap and finds a static owner path', { timeout: 30_000 }, async t => {
+test('real JVM HPROF: reads a locally captured heap and finds a static owner path', { timeout: 150_000 }, async t => {
   let java, javac;
   try { java = await executable('java'); javac = path.join(path.dirname(java), process.platform === 'win32' ? 'javac.exe' : 'javac'); await access(javac); }
   catch { t.skip('JDK unavailable'); return; }
@@ -60,8 +60,8 @@ public class HeapFixture {
   }
 }
 `);
-    await run(javac, [path.join(directory, 'HeapFixture.java')]);
-    const input = path.join(directory, 'real.hprof'); await run(java, ['-cp', directory, 'HeapFixture', input]);
+    await run(javac, [path.join(directory, 'HeapFixture.java')], { timeout: 60_000 });
+    const input = path.join(directory, 'real.hprof'); await run(java, ['-cp', directory, 'HeapFixture', input], { timeout: 60_000 });
     const result = await analyzeHeap({ input, targetClass: 'HeapFixture$Screen' });
     assert.equal(result.targetSummary.count, 1); assert.equal(result.paths[0].found, true);
     assert.ok(result.paths[0].steps.some(s => s.via === 'retained')); assert.equal(result.paths[0].steps.at(-1).via, 'child');
