@@ -74,3 +74,14 @@ test('jobs distinguish success, failure and cancellation', async () => {
   const canceled=jobs.start('cancel',({signal})=>new Promise((resolve,reject)=>{if(signal.aborted)return reject(new Error('aborted'));signal.addEventListener('abort',()=>reject(new Error('aborted')));}));
   jobs.cancel(canceled.id);await jobs.jobs.get(canceled.id).promise;assert.equal(jobs.get(canceled.id).state,'canceled');await jobs.close();
 });
+test('separate Android instances serialize access to the same device inspection service', async () => {
+  const a=new Android(),b=new Android();let active=0,maxActive=0;
+  for(const android of [a,b]) {
+    android.device=async()=>`lock-test-${process.pid}`;
+    android.shell=async(serial,args)=>{
+      if(args[0]==='uiautomator'){active++;maxActive=Math.max(maxActive,active);await new Promise(r=>setTimeout(r,40));active--;return{stdout:'OK'};}
+      return{stdout:args[0]==='cat'?xml:''};
+    };
+  }
+  const results=await Promise.all([a.inspect(),b.inspect()]);assert.equal(maxActive,1);assert.equal(results[0].nodes.length,3);assert.equal(results[1].nodes.length,3);
+});

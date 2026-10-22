@@ -20,8 +20,9 @@ await android.input(serial, { type: 'tap', x: Math.round((counter.bounds.left + 
 await delay(400); tree = await android.inspect(serial, { fresh: true }); assert.ok(tree.nodes.some(n => n.text === 'Count: 1'), 'Native click updates app state');
 await writeFile(path.join(output, 'device.png'), await android.screenshot(serial));
 const viewer = await createViewer({ android, serial, project: directory }); const browser = await chromium.launch();
+let page;
 try {
-  const page = await browser.newPage({ viewport: { width: 520, height: 900 } }); const errors = []; page.on('pageerror', e => errors.push(e.message));
+  page = await browser.newPage({ viewport: { width: 520, height: 900 } }); page.setDefaultTimeout(15_000); const errors = []; page.on('pageerror', e => errors.push(e.message));
   await page.goto(viewer.url); await page.waitForFunction(() => document.getElementById('empty').hidden); await delay(2000);
   await page.getByRole('button', { name: 'Inspect element' }).click();
   const screen = await page.locator('canvas').boundingBox();
@@ -37,4 +38,8 @@ try {
   await android.capture(serial, { kind: 'video', seconds: 2, output: path.join(output, 'journey.mp4') });
   const summary = { platform: process.platform, serial, generatedProjectBuilt: true, nativeCounterInteraction: true, composeSemantics: true, browserInspection: true, previewLaunchedWithoutCrash: true, traceCaptured: true, videoCaptured: true, annotationContract: 'See Playwright tests; native host must be checked in Codex.' };
   await writeFile(path.join(output, 'result.json'), JSON.stringify(summary, null, 2)); console.log(JSON.stringify(summary, null, 2));
+} catch (error) {
+  if (page && !page.isClosed()) { await page.screenshot({ path: path.join(output, 'failure.png') }).catch(() => {}); console.error((await page.locator('body').innerText()).slice(0, 3000)); }
+  console.error('Device hierarchy:', JSON.stringify((await android.inspect(serial, { fresh: true }).catch(e => ({ error: e.message }))).nodes?.slice(0, 12)));
+  throw error;
 } finally { await browser.close(); await viewer.close(); }

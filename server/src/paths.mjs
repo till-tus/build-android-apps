@@ -5,10 +5,11 @@ import { access, readdir, readFile } from 'node:fs/promises';
 export async function exists(file) { try { await access(file); return true; } catch { return false; } }
 
 export function sdkCandidates({ platform = process.platform, env = process.env, home = os.homedir() } = {}) {
+  const paths = platform === 'win32' ? path.win32 : path.posix;
   return [...new Set([env.ANDROID_HOME, env.ANDROID_SDK_ROOT,
-    platform === 'darwin' ? path.join(home, 'Library', 'Android', 'sdk') : undefined,
+    platform === 'darwin' ? paths.join(home, 'Library', 'Android', 'sdk') : undefined,
     platform === 'win32' ? path.win32.join(env.LOCALAPPDATA || path.win32.join(home, 'AppData', 'Local'), 'Android', 'Sdk') : undefined,
-    path.join(home, 'Android', 'Sdk')].filter(Boolean))];
+    paths.join(home, 'Android', 'Sdk')].filter(Boolean))];
 }
 
 export async function sdkRoot() {

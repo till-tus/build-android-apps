@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { run, remoteQuote, delay } from './process.mjs';
 import { executable, sdkRoot, sdkCommand, exists } from './paths.mjs';
 import { parseHierarchy } from './hierarchy.mjs';
+import { withInspectionLock } from './device-lock.mjs';
 
 export const packageName = value => {
   if (!/^[a-zA-Z][\w]*(?:\.[a-zA-Z][\w]*)+$/.test(value)) throw new Error('Expected an Android package name, such as com.example.app');
@@ -106,14 +107,14 @@ export class Android {
     serial = await this.device(serial);
     if (!fresh && Date.now() - (this.cache.get(serial)?.capturedAt || 0) < 2500) return this.cache.get(serial);
     if (this.dumps.has(serial)) return this.dumps.get(serial);
-    const operation = (async () => {
+    const operation = withInspectionLock(serial, async () => {
       const remote = `/data/local/tmp/codex-ui-${randomUUID()}.xml`;
       try {
         await this.shell(serial, ['uiautomator', 'dump', '--compressed', remote], { timeout: 15_000 });
         const xml = (await this.shell(serial, ['cat', remote])).stdout;
         const tree = { ...parseHierarchy(xml), serial }; this.cache.set(serial, tree); return tree;
-      } finally { await this.shell(serial, ['rm', '-f', remote]).catch(() => {}); }
-    })();
+      } finally { await this.shell(serial, ['rm', '-f', remote], { timeout: 3000 }).catch(() => {}); }
+    });
     this.dumps.set(serial, operation);
     try { return await operation; } finally { this.dumps.delete(serial); }
   }

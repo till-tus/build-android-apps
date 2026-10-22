@@ -10,7 +10,7 @@ test('viewer authenticates HTTP/WS, blocks cross-origin requests and forwards on
   assert.equal((await fetch(viewer.origin+'/api/state')).status,401);
   assert.equal((await fetch(viewer.origin+'/api/state',{headers:{...headers,Origin:'https://evil.example'}})).status,403);
   const page=await fetch(viewer.origin);assert.equal(page.status,200);assert.match(page.headers.get('content-security-policy'),/frame-ancestors 'none'/);
-  const state=await(await fetch(viewer.origin+'/api/state',{headers})).json();assert.equal(state.width,360);
+  const state=await(await fetch(viewer.origin+'/api/state',{headers})).json();assert.equal(state.width,360);assert.ok(state.tree.nodes.length>0,'Initial device frame has inspection context before the first client connects');
   const post=action=>fetch(viewer.origin+'/api/input',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(action)});
   assert.equal((await post({type:'tap',x:100,y:160})).status,200);assert.equal(android.actions.length,1);
   assert.equal((await post({type:'shell',command:'whoami'})).status,400);assert.equal(android.actions.length,1);

@@ -26,21 +26,26 @@ async function body(req) {
 export async function createViewer({ android, serial, project, port = 0, assets = viewerRoot, enableVideo = true }) {
   serial = await android.device(serial);
   const token = randomBytes(32).toString('hex'); const clients = new Set(); let tree = { nodes: [], capturedAt: 0 }, treeError;
-  let png, width = 1080, height = 1920, closed = false, video, codec, refreshBusy = false, inputQueue = Promise.resolve(), inputCount = 0;
+  let png, width = 1080, height = 1920, closed = false, video, codec, refreshPromise, inputQueue = Promise.resolve(), inputCount = 0;
   const sockets = new Set();
   const json = (res, value, code = 200) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(value)); };
   const broadcast = value => { for (const ws of clients) if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(value)); };
-  const refreshTree = async () => {
-    if (refreshBusy || closed) return tree; refreshBusy = true;
-    try { tree = await android.inspect(serial, { fresh: true }); treeError = undefined; broadcast({ type: 'hierarchy', ...tree }); }
-    catch (e) { treeError = e.message; broadcast({ type: 'hierarchyError', message: treeError }); }
-    finally { refreshBusy = false; } return tree;
+  const refreshTree = () => {
+    if (closed) return Promise.resolve(tree);
+    if (refreshPromise) return refreshPromise;
+    refreshPromise = (async () => {
+      try { tree = await android.inspect(serial, { fresh: true }); treeError = undefined; broadcast({ type: 'hierarchy', ...tree }); }
+      catch (e) { treeError = e.message; broadcast({ type: 'hierarchyError', message: treeError }); }
+      finally { refreshPromise = undefined; } return tree;
+    })();
+    return refreshPromise;
   };
   const capture = async () => {
     png = await android.screenshot(serial); width = png.readUInt32BE(16); height = png.readUInt32BE(20); return png;
   };
   // A real frame is required before returning a viewer URL.
   await capture();
+  await refreshTree();
   const server = http.createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store'); res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('X-Frame-Options', 'DENY');
@@ -60,7 +65,7 @@ export async function createViewer({ android, serial, project, port = 0, assets 
           try { await operation; } finally { inputCount--; }
           setTimeout(() => refreshTree(), 350); return json(res, { ok: true });
         }
-        if (req.method === 'POST' && url.pathname === '/api/inspect') return json(res, await refreshTree());
+        if (req.method === 'POST' && url.pathname === '/api/inspect') { const result = await refreshTree(); return treeError ? json(res, { error: treeError }, 503) : json(res, result); }
         if (req.method === 'POST' && url.pathname === '/api/source') {
           const { id } = z.object({ id: z.string().max(40) }).parse(await body(req));
           const node = tree.nodes.find(n => n.id === id); if (!node) return json(res, { error: 'Element no longer exists' }, 404);
