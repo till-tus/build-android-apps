@@ -31,12 +31,12 @@ function highlight(node) {
 }
 async function select(node) {
   state.selected = node; highlight(node); if (!node) { $('inspector').hidden = true; layout(); return; }
-  $('inspector').hidden = false; $('element-name').textContent = node.text || node.contentDescription || node.resourceId || node.className.split('.').at(-1);
+  $('inspector').hidden = false; $('element-name').textContent = node.text || node.label || node.contentDescription || node.resourceId || node.className.split('.').at(-1);
   $('properties').replaceChildren();
-  const values = { 'Resource ID': node.resourceId || '—', Class: node.className, Text: node.text || '—', Description: node.contentDescription || '—', Bounds: node.bounds ? `[${node.bounds.left},${node.bounds.top}][${node.bounds.right},${node.bounds.bottom}]` : '—' };
+  const values = { 'Resource ID': node.resourceId || '—', Class: node.className, Text: node.text || node.label || '—', Description: node.contentDescription || '—', Bounds: node.bounds ? `[${node.bounds.left},${node.bounds.top}][${node.bounds.right},${node.bounds.bottom}]` : '—' };
   for (const [key, value] of Object.entries(values)) { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = key; dd.textContent = value; $('properties').append(dt, dd); }
   $('sources').hidden = true; layout();
-  try { const { source } = await api('source', { id: node.id }); if (state.selected?.id !== node.id) return; node.source = source; if (source.length) { $('sources').hidden = false; $('source-values').textContent = source.map(s => `${s.location}\n${s.snippet}`).join('\n\n'); layout(); } } catch { /* Source candidates are optional. */ }
+  try { const { source } = await api('source', { id: node.id }); if (state.selected?.id !== node.id) return; node.source = source; const cached = state.tree.nodes.find(n => n.id === node.id); if (cached) cached.source = source; if (source.length) { $('sources').hidden = false; $('source-values').textContent = source.map(s => `${s.location}\n${s.snippet}`).join('\n\n'); layout(); } } catch { /* Source candidates are optional. */ }
 }
 const annotations = connectAnnotations({ canvas, button: $('annotate'), getState: () => ({ ...state, tree: annotationTree || state.tree }),
   onSelection: id => { const node = (annotationTree || state.tree).nodes.find(n => n.id === id); highlight(node); },

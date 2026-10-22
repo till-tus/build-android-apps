@@ -27,6 +27,11 @@ test('macOS and Windows SDK defaults preserve paths with spaces', () => {
   assert.ok(sdkCandidates({platform:'win32',env:{LOCALAPPDATA:'C:\\Users\\A User\\AppData\\Local'},home:'C:\\Users\\A User'}).includes('C:\\Users\\A User\\AppData\\Local\\Android\\Sdk'));
   assert.ok(sdkCandidates({platform:'darwin',env:{},home:'/Users/A User'}).includes('/Users/A User/Library/Android/sdk'));
 });
+test('picking a Compose label preserves its tagged interactive parent and visible label', () => {
+  const tree=parseHierarchy(xml);const button=tree.nodes[1];
+  const leaf={...button,id:'label',parentId:button.id,resourceId:'',text:'Count: 1',clickable:false,depth:button.depth+1,bounds:{left:60,top:140,right:150,bottom:180,width:90,height:40}};
+  const selected=hitTest([...tree.nodes,leaf],100,160);assert.equal(selected.resourceId,'counter');assert.equal(selected.label,'Count: 1');assert.equal(selected.id,button.id);
+});
 test('SDK discovery prefers the actual newest tools over a stale latest folder', async () => {
   const tmp=await mkdtemp(path.join(os.tmpdir(),'android-sdk-version-'));
   try {

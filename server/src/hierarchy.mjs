@@ -33,9 +33,4 @@ export function parseHierarchy(xml) {
   return { rotation: Number(parsed.hierarchy?.rotation || 0), nodes, capturedAt: Date.now() };
 }
 
-export function hitTest(nodes, x, y) {
-  return nodes.filter(n => n.bounds && x >= n.bounds.left && x < n.bounds.right && y >= n.bounds.top && y < n.bounds.bottom)
-    .sort((a, b) => (a.bounds.width * a.bounds.height - b.bounds.width * b.bounds.height) || b.depth - a.depth)[0] || null;
-}
-
-export { metadata as annotationMetadata } from '../../viewer/annotations.js';
+export { metadata as annotationMetadata, pick as hitTest } from '../../viewer/annotations.js';
