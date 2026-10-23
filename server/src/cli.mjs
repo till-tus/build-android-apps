@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// The SDK creates Zod schemas at module initialization. Initialize Zod first
+// so its cyclic v4 exports are ready in the self-contained ESM bundle.
+import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createTools } from './tools.mjs';
@@ -31,7 +34,6 @@ async function main() {
     if (value === undefined || value.startsWith('--')) value = true; else { i++; try { value = JSON.parse(value); } catch { /* String argument. */ } }
     args[key] = value;
   }
-  const { z } = await import('zod');
   const parsed = z.object(tool.schema).strict().parse(args);
   if (name === 'screenshot' && !parsed.output) throw new Error('CLI screenshots require --output /absolute/path.png. MCP screenshots return inline images.');
   try {
