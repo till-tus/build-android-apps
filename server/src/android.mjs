@@ -5,7 +5,7 @@ import os from 'node:os';
 import { mkdir, writeFile, readFile, readdir } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { run, remoteQuote, delay } from './process.mjs';
-import { executable, sdkRoot, sdkCommand, exists } from './paths.mjs';
+import { executable, sdkRoot, sdkCommand, exists, javaRuntime } from './paths.mjs';
 import { parseHierarchy } from './hierarchy.mjs';
 import { withInspectionLock } from './device-lock.mjs';
 
@@ -238,9 +238,9 @@ export async function buildProject(project, tasks = ['assembleDebug'], { signal,
   if (!tasks.length || tasks.some(t => !/^:?[\w:-]+$/.test(t) || t.startsWith('-'))) throw new Error('Gradle tasks must be task names, such as :app:assembleDebug');
   const jar = path.join(root, 'gradle', 'wrapper', 'gradle-wrapper.jar');
   if (!(await exists(jar))) throw new Error('Gradle wrapper JAR missing. Generate a wrapper or create a project first.');
-  const java = await executable('java'); let sdk; try { sdk = await sdkRoot(); } catch { /* local.properties may configure SDK */ }
-  const result = await run(java, ['-classpath', jar, 'org.gradle.wrapper.GradleWrapperMain', '--console=plain', ...tasks], {
-    cwd: root, env: { JAVA_HOME: path.dirname(path.dirname(java)), ...(sdk ? { ANDROID_HOME: sdk } : {}) }, signal, onOutput, timeout: 20 * 60_000, maxBytes: 32_000_000
+  const java = await javaRuntime(); let sdk; try { sdk = await sdkRoot(); } catch { /* local.properties may configure SDK */ }
+  const result = await run(java.file, ['-classpath', jar, 'org.gradle.wrapper.GradleWrapperMain', '--console=plain', ...tasks], {
+    cwd: root, env: { JAVA_HOME: java.home, ...(sdk ? { ANDROID_HOME: sdk } : {}) }, signal, onOutput, timeout: 20 * 60_000, maxBytes: 32_000_000
   });
   return { ...result, ...(await describeProject(root)) };
 }

@@ -7,3 +7,22 @@ test-results/
 .DS_Store
 .env*
 !.env.example
+
+# Local SDK/project configuration, credentials and captured app data
+local.properties
+.gradle/
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+*.hprof
+*.perfetto-trace
+*.apk
+*.aab
+adbkey*
+credentials.json
+secrets.json
+gitleaks-report.*
+Thumbs.db

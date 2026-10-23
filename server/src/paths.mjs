@@ -1,6 +1,7 @@
 import path from 'node:path';
 import os from 'node:os';
 import { access, readdir, readFile } from 'node:fs/promises';
+import { run } from './process.mjs';
 
 export async function exists(file) { try { await access(file); return true; } catch { return false; } }
 
@@ -51,6 +52,17 @@ export async function executable(name) {
   for (const dir of (process.env.PATH || '').split(path.delimiter)) candidates.push(path.join(dir, name + suffix));
   for (const candidate of candidates) if (await exists(candidate)) return candidate;
   throw new Error(`${name} not found. Install it through Android Studio SDK Manager or set ANDROID_PLUGIN_${name.toUpperCase()}.`);
+}
+
+/** Ask the JVM: PATH launchers may be symlinks or OS/vendor shims outside the JDK. */
+export async function javaRuntime(file) {
+  file ??= await executable('java');
+  const result = await run(file, ['-XshowSettings:properties', '-version']);
+  const home = /^\s*java\.home\s*=\s*(.+)$/m.exec(result.stderr + '\n' + result.stdout)?.[1].trim();
+  if (!home || !path.isAbsolute(home) || !(await exists(path.join(home, 'bin', process.platform === 'win32' ? 'java.exe' : 'java')))) {
+    throw new Error('Java did not report a valid java.home. Set JAVA_HOME to a full JDK installation.');
+  }
+  return { file, home };
 }
 
 // Java launcher avoids cmd.exe/.bat quoting entirely, including on Windows.

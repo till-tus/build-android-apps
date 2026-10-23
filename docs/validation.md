@@ -1,5 +1,13 @@
 # Validation
 
+## 0.2.1 — public repository preparation, 23 October 2026
+
+The readiness audit covers source, the committed runtime, full Git history, all retained CI logs/artifacts, redistribution notices and installation documentation. See the [audit record](public-readiness.md) for scope and results.
+
+Local macOS / Apple Silicon validation uses Node 25.6.1 and Android Studio JBR 21.0.10. A clean `npm ci` and `npm run check` pass 31 Node tests and five Chromium tests; the optional native Perfetto test is explicitly skipped when no processor is configured. New checks exercise an out-of-JDK Java launcher with a path containing spaces and a relocated bundled MCP server without `node_modules`. The SDK smoke check covers the native SDK manager and Java AVD manager.
+
+The previous [CI run at ab0d1ef](https://github.com/till-tus/build-android-apps/actions/runs/39867056420) passes all six OS/Node combinations (macOS, Windows, Linux; Node 22/24), plus the Linux/KVM real-emulator journey including native Perfetto analysis. This is separately observed hosted Windows execution, not a local Windows run of the readiness changes. Native Codex annotation delivery remains a manual host-specific boundary.
+
 ## 0.2.0 — Windows, 23 October 2026
 
 Validated on Windows x64 with Node 24.18.0, Android Studio's JBR 21.0.10, Chromium 156 and the official native Perfetto v58.2 processor. Local verification covers:
@@ -18,7 +26,7 @@ Those diagnostics identified a hosted API 36 System UI ANR dialog covering an al
 
 External JVM fixture compilation/startup/capture has a separate bounded integration-test budget (150 seconds overall, 60 seconds per compiler/capture subprocess) for cold Windows runners. Runtime JDWP command limits and the assertions are unchanged.
 
-This Windows machine has Java but no Android SDK, emulator or AVD. Real ART/JDWP, Android heap and changed trace-config checks run in the real-emulator CI job, which now tests breakpoint/stack/locals/detach, captured Android HPROF analysis and native Perfetto analysis. Inspect the [workflow for the release commit](https://github.com/till-tus/build-android-apps/actions/workflows/ci.yml) for its result. No local end-to-end Android speedup or native Codex annotation delivery is claimed. The user's installed 0.1.1 plugin is deliberately left unchanged while in use.
+That Windows validation environment had Java but no Android SDK, emulator or AVD. Real ART/JDWP, Android heap and changed trace-config checks run in the real-emulator CI job, which tests breakpoint/stack/locals/detach, captured Android HPROF analysis and native Perfetto analysis. Inspect the [workflow for the release commit](https://github.com/till-tus/build-android-apps/actions/workflows/ci.yml) for its result. No local Windows end-to-end Android speedup or native Codex annotation delivery is claimed.
 
 ## 0.1.1 — previous macOS / Apple Silicon evidence, 22 October 2026
 

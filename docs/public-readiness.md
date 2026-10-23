@@ -1,0 +1,32 @@
+# Public repository readiness audit
+
+Audit date: 23 October 2026. Repository visibility remains private. This record contains no authenticated viewer URLs, raw device data or scanner findings containing secret values.
+
+## Scope and secret checks
+
+- Fetched the remote refs and checked GitHub's refs, branches, tags, releases and issues/PRs. At the start of the audit, `main` at `ab0d1ef498ac9ea103bdfb7b0850ee9ae25e3dc9` was the only published ref; there were no tags, releases, issues or PRs. All 12 historical commits were scanned, including deleted/earlier file contents. Author/committer addresses use GitHub's noreply domain.
+- Gitleaks 8.30.1, downloaded from its official release and verified against the published SHA-256, found no secrets in history or the current tracked/new source snapshot. An additional scan exported all 134 locally stored blobs, including the three unreachable blobs, and also found no leaks. Local checkpoints/reflogs are not ordinarily published by a normal branch push, but were included in this extra object check.
+- Historical path/filename review found no personal home directories, private keys, signing keystores, environment files, credentials, heap dumps, device captures or private project files in the published trees. The `A User` paths are synthetic cross-platform test fixtures. The repository intentionally identifies its maintainer and GitHub repository.
+- Downloaded and scanned the complete logs for all 11 retained GitHub Actions runs and all 12 retained workflow artifacts (approximately 154 MB of expanded artifact content). No secrets or complete authenticated viewer URLs were detected. The device evidence belongs to the generated `dev.codex.androidlab` fixture app; capture code and summaries were reviewed. No artifacts or logs were deleted.
+- `npm audit` reports zero known vulnerabilities across the locked dependencies, including development dependencies. Integrity entries use the public npm registry. The bundled Gradle 9.3.1 wrapper matches the checksum published by Gradle: `b3a875ddc1f044746e1b1a55f645584505f4a10438c1afea9f15e92a7c42ec13`.
+
+No credential rotation or Git history rewrite was indicated by these checks. Pattern scanners and manual review cannot establish the absence of every possible secret or vulnerability.
+
+## Changes made
+
+- Expanded the README with prerequisites, exact generated-project SDK packages, JDK compatibility, macOS/PowerShell environment examples, USB/hypervisor setup, local marketplace registration, verification, updates, uninstall and troubleshooting. Removed private-repository-only wording. Documented unverified environments and host annotation requirements.
+- Fixed Gradle's `JAVA_HOME` handoff for Java binaries exposed through symlinks or platform/vendor shims. The plugin now queries the actual JVM home rather than assuming the launcher's parent is the JDK. Added a real JVM regression check with paths containing spaces.
+- Added a relocated-bundle MCP test that runs without `node_modules` and generates a project using the bundle's own wrapper asset. Runtime behavior still uses host argument arrays, separately quoted Android shell arguments, explicit device selection, scoped resource ownership and authenticated loopback access.
+- Preserved the full upstream MIT text for `@nodable/entities@3.1.0`, whose npm package omits its license. Builds now fail when a bundled dependency lacks full redistribution license text. Added Android robot CC BY 3.0 attribution to the notices and icon metadata. Existing MIT and Gradle Apache notices remain included.
+- Added full-history/source Gitleaks checks (including a viewer-session-URL rule), npm auditing, immutable action pins and committed-bundle freshness checks to CI. Added Dependabot configuration, a security policy, contribution instructions, consistent line endings and ignore rules for credentials/signing/capture files. Packages include the new documentation and license assets.
+- Updated the plugin and bundle to 0.2.1. Kept `package.json` private to prevent accidental npm publishing; this does not restrict public GitHub or plugin marketplace use.
+
+## Validation and boundaries
+
+Local macOS/Apple Silicon checks include a clean locked dependency install, bundle build, 31 passing Node tests, five passing Chromium tests, native SDK-manager/Java AVD-manager smoke checks and plugin packaging. One optional native Perfetto test is skipped when no native processor is configured. An isolated watcher check passed five consecutive runs after one timeout while a separate real Android build was running.
+
+The real macOS emulator built and installed the generated app, exercised native counter changes, browser inspection, JDWP breakpoints/stack/locals/detach, Compose preview, and captured trace/video. Its first combined run timed out during heap capture; an isolated heap capture then passed. A full retry also captured/analyzed the Android heap, then timed out on device launch/UI inspection during the watch stage. This reused emulator had been running for over 15 hours; command timing showed intermittent device-side delays. This is recorded separately from the fresh Linux/KVM CI journey. Do not infer a complete local end-to-end pass from the partial runs.
+
+The [preparation baseline CI run](https://github.com/till-tus/build-android-apps/actions/runs/39867056420) passed macOS, Windows and Linux on Node 22/24 and a separate real Linux/KVM emulator journey including native Perfetto analysis, heap analysis and source watch/relaunch. The exact readiness commit should also pass the [Verify plugin workflow](https://github.com/till-tus/build-android-apps/actions/workflows/ci.yml) before changing visibility. Hosted Windows execution is separate from physical Windows devices/hypervisors; native Codex annotation delivery still requires a compatible host and a manual attachment check.
+
+The README does not promise arbitrary SDK/JDK/Gradle combinations, unsupported CPU images, WSL/container loopback bridging or unavailable host APIs. The plugin has no bundled cloud service or API key requirement. Captured context sent to Codex remains subject to the host's data handling. Only build trusted Android projects.

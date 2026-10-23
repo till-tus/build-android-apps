@@ -1,0 +1,10 @@
+title = "Build Android Apps secret scanning"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "android-viewer-session-url"
+description = "Authenticated local Android viewer session URL"
+regex = '''http://(?:127\.0\.0\.1|localhost):[0-9]+/#[a-f0-9]{64}'''
+keywords = ["http://127.0.0.1", "http://localhost"]
