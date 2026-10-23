@@ -1,6 +1,6 @@
 # Architecture
 
-The plugin contains nine workflow skills, a local MCP server and a localhost browser viewer. Node 22+ and the installed Android SDK are the runtime dependencies. The committed server bundle includes its npm dependencies; the same artifact runs on macOS, Windows and Linux.
+The plugin contains nine workflow skills, a local MCP server and a localhost browser viewer. A security-patched Node 22 LTS (22.23.4+) or 24 LTS (24.22.1+) and the installed Android SDK are the runtime dependencies. Other major lines/prereleases and older patches are rejected at startup, including when npm installation/engine checks are bypassed. CLI `doctor` and `help` remain available for repair. The committed server bundle includes its npm dependencies; the same artifact runs on macOS, Windows and Linux.
 
 ## Request and rendering paths
 

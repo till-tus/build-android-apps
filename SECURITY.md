@@ -2,6 +2,8 @@
 
 Security fixes target the latest version on `main`. Install updates by refreshing the marketplace and reinstalling the plugin; bundled npm dependencies only change when the bundle is rebuilt.
 
+The host Node executable is a separate security dependency. Use the latest patched Node 24 LTS (minimum 24.22.1) or Node 22 LTS (minimum 22.23.4), including the [21 October 2026 security fixes](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases). Startup enforces these supported major lines and minimum patches; Node 23/25 and prereleases are refused. `doctor`/`help` stay available for setup diagnosis. npm auditing and a rebuilt bundle do not patch Node itself. Restart the desktop host and plugin processes after changing the executable. The offline baseline must be raised again when future advisories require it.
+
 ## Report a vulnerability privately
 
 Use [GitHub's private vulnerability report](https://github.com/till-tus/build-android-apps/security/advisories/new) when available. If GitHub does not offer private reporting for this repository, open an issue asking the maintainer to arrange a private channel, without including vulnerability details or sensitive data. Never post credentials, authenticated viewer URLs, real heap dumps, or private app data in a public issue.

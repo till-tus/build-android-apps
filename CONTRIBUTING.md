@@ -1,6 +1,6 @@
 # Contributing
 
-Use Node.js 22 or 24, Git and a full JDK (21 is used in CI). Clone the repository, then run:
+Use the latest patched Node.js 24 LTS (24.22.1+) or 22 LTS (22.23.4+), Git and a full JDK (21 is used in CI). `.node-version` selects the tested Node 24 security baseline. Clone the repository, then run:
 
 ```sh
 npm ci
@@ -10,6 +10,8 @@ npm run pack:plugin
 ```
 
 On Linux, `npx playwright install --with-deps chromium` also installs browser system dependencies and may need administrator permission. A device is not needed for the default tests. Real JVM tests need a JDK; the optional native Perfetto test needs `ANDROID_PLUGIN_TRACE_PROCESSOR` pointing to a native executable.
+
+Run `node scripts/check-node.mjs` to verify the current runtime before installing/building. CI fetches the latest patches in the 22/24 lines, prints the exact version/executable and fails before npm installation if the security floor is not met. Keep `server/src/runtime.mjs`, package engines, `.node-version` and setup documentation aligned when raising the security baseline. Runtime policy is an offline minimum, not a substitute for installing future Node security updates.
 
 Follow [AGENTS.md](AGENTS.md). Keep macOS and Windows equivalent, use host argument arrays with `shell: false`, quote Android remote shell arguments separately, and keep runtime assets relative to the bundle. Run the full checks after runtime/viewer changes. Commit the regenerated `server/dist/cli.mjs` and `assets/THIRD_PARTY_LICENSES.txt`; CI rejects a stale bundle. Update manifests, CLI version, package lock and documentation together when changing versions. `package.json` is deliberately private to prevent accidental npm publishing; users install through a plugin marketplace.
 

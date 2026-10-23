@@ -8,6 +8,7 @@ import { run, remoteQuote, delay } from './process.mjs';
 import { executable, sdkRoot, sdkCommand, exists, javaRuntime } from './paths.mjs';
 import { parseHierarchy } from './hierarchy.mjs';
 import { withInspectionLock } from './device-lock.mjs';
+import { nodeRuntimeStatus } from './runtime.mjs';
 
 export const packageName = value => {
   if (!/^[a-zA-Z][\w]*(?:\.[a-zA-Z][\w]*)+$/.test(value)) throw new Error('Expected an Android package name, such as com.example.app');
@@ -44,7 +45,8 @@ export class Android {
     return ready[0].serial;
   }
   async doctor() {
-    const checks = { platform: process.platform, arch: process.arch, node: process.version, sdk: null, tools: {}, devices: [], avds: [], issues: [] };
+    const runtime = nodeRuntimeStatus();
+    const checks = { platform: process.platform, arch: process.arch, node: process.version, nodeExecutable: process.execPath, runtime, sdk: null, tools: {}, devices: [], avds: [], issues: runtime.supported ? [] : [runtime.issue] };
     try { checks.sdk = await sdkRoot(); } catch (e) { checks.issues.push(e.message); }
     for (const name of ['adb', 'emulator', 'java', 'sdkmanager', 'avdmanager']) {
       try { checks.tools[name] = await executable(name); } catch (e) { checks.issues.push(e.message); }

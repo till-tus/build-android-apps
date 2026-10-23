@@ -11,7 +11,7 @@ The viewer streams a real device, forwards input, inspects Android accessibility
 | Component | Requirement |
 | --- | --- |
 | Host | A local Codex desktop chat on macOS or Windows, with local plugins and browser access enabled. Account/workspace policies can restrict plugins. |
-| Node.js | [Node.js 22 or 24 LTS](https://nodejs.org/), on the PATH inherited by Codex. The runtime requires Node 22+. |
+| Node.js | Latest patched [Node.js 24 LTS](https://nodejs.org/) (at least **24.22.1**) or 22 LTS (at least **22.23.4**), on the PATH inherited by Codex. Other major lines and prereleases are rejected. |
 | Git | [Git](https://git-scm.com/downloads), for cloning and marketplace updates. |
 | Android tools | [Android Studio](https://developer.android.com/studio/install) is the easiest way to install/manage the SDK, Java and virtual devices. A separately installed SDK and JDK also work. |
 | Java | A full JDK compatible with your project. JDK 21 is tested; the generated AGP 9.1.1 / Gradle 9.3.1 project requires at least JDK 17. Android Studio's bundled JBR works. |
@@ -37,6 +37,8 @@ codex plugin add build-android-apps@till-android-tools
 Restart the desktop app, open its plugin browser, select **Till's Android Tools** if needed, and ensure **Build Android Apps** is installed/enabled. Start a new **local** chat in your Android project and select the plugin. Hosts differ in local marketplace UI; see the [official OpenAI installation/marketplace documentation](https://developers.openai.com/plugins/build/plugins). If the CLI and desktop app run under different OS accounts or configuration homes, register/install in the account used by the desktop app.
 
 The committed bundle already includes runtime npm dependencies: do **not** run `npm install` just to use the plugin. Your SDK, emulator images and JDK remain separate installations. The plugin itself needs no API key; Codex uses your normal host sign-in. Cloud-only chats cannot reach your computer's emulator. WSL, containers, remote SSH hosts and split Windows/WSL SDK installations are not a validated side-panel setup; keep Node, SDK, ADB and Codex on the same host. Linux runs the CLI/MCP/viewer and is tested in CI; this does not establish Linux desktop host/annotation availability.
+
+The Node minimums include the [21 October 2026 security fixes](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases). Use the newest patch in a supported LTS line. Node 23/25 are end of life; a higher major number alone does not mean supported. The plugin refuses to start MCP or device/viewer commands on an unsupported or older patch, even when installed without npm. `doctor` and `help` remain available to diagnose and repair setup. Updating this plugin or its npm bundle does not update your host's Node executable. Verify `node --version` and restart Codex/plugin processes after upgrading; a running process retains its old runtime.
 
 ### Configure and verify
 
@@ -88,6 +90,10 @@ Example prompts:
 - “Capture a Perfetto trace while I scroll this list and investigate the slow frames.”
 
 The agent discovers the SDK and project, chooses an explicit device, builds and installs the app, starts a viewer, and opens the exact local viewer URL in Codex's in-app browser. The crosshair selects Android elements. The pencil appears when native host annotations are available. Use Codex's annotation mode to select an element and send feedback into chat. The inspector's **Copy** button also exports element context.
+
+## New in 0.2.2
+
+Security-patched Node LTS requirements are now enforced by the packaged CLI/MCP startup, `doctor` reports old/EOL runtimes and the actual executable, and CI checks exact runtime versions before installing dependencies. This addresses [issue #8](https://github.com/till-tus/build-android-apps/issues/8); updating bundled npm libraries alone cannot fix a vulnerable Node executable.
 
 ## New in 0.2.1
 
@@ -168,6 +174,7 @@ Tests cover hierarchy parsing/redaction, malicious command arguments, ambiguous 
 ## Troubleshooting
 
 - **No SDK/Java:** run `doctor`. Set `ANDROID_HOME`/`JAVA_HOME`, install the listed SDK packages, and restart Codex after PATH changes.
+- **Unsupported / security-outdated Node:** install the latest Node 24 LTS (24.22.1+) or Node 22 LTS (22.23.4+), verify the exact executable/version used by the desktop app, then restart it and its plugin processes. `doctor` reports the runtime policy in `runtime` and adds a specific issue for old/EOL releases. An npm audit does not audit the Node executable.
 - **`node` or `codex` not found:** install the prerequisites for the same OS/user running the desktop app, confirm their versions in a new terminal, and restart the app. PowerShell execution-policy restrictions on npm's `.ps1` launcher can be avoided by using `npm.cmd` / `codex.cmd` rather than weakening the policy.
 - **Plugin missing / `plugin` command unknown:** update the Codex host/CLI, check `codex plugin marketplace list` and `codex plugin list`, refresh/reinstall the cached copy, and start a new local chat. Workspace policy may disable local plugins.
 - **SDK license / platform error:** use SDK Manager to install the project's exact platform and build-tools and review its licenses. The generated project uses API 36 / Build-Tools 36.0.0. Set a compatible JDK when Gradle reports a Java version mismatch.

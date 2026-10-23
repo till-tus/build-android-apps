@@ -1,9 +1,11 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "build-android-apps",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Build, debug, profile and refine Android apps with a live emulator and native Codex annotations on macOS and Windows.",
-  "author": { "name": "Till" },
+  "author": {
+    "name": "Till"
+  },
   "license": "MIT",
   "extensions": {
     "com.openai": {
@@ -14,8 +16,14 @@
         "longDescription": "Local Android development tools and nine focused workflows for Compose, emulator mirroring, browser annotations, previews, debugging, performance, memory and system integrations. Runs on macOS and Windows with Node.js and the Android SDK.",
         "developerName": "Till",
         "category": "Developer Tools",
-        "capabilities": ["Interactive", "Read", "Write"],
-        "defaultPrompt": ["Build or debug an Android app with Jetpack Compose and show it in the side panel."],
+        "capabilities": [
+          "Interactive",
+          "Read",
+          "Write"
+        ],
+        "defaultPrompt": [
+          "Build or debug an Android app with Jetpack Compose and show it in the side panel."
+        ],
         "brandColor": "#98DBA5",
         "composerIcon": "./assets/icon.svg",
         "logo": "./assets/icon.svg"

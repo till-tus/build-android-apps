@@ -1,10 +1,18 @@
 # Validation
 
+## 0.2.2 — patched Node LTS baseline, 23 October 2026
+
+Issue [#8](https://github.com/till-tus/build-android-apps/issues/8) identified outdated recorded Node runtimes and an unrestricted engine range. The [official 21 October security release](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) sets the baseline used here: Node 22.23.4+ within 22.x, or 24.22.1+ within 24.x. Other majors and prereleases are rejected. Historical versions below are observations, not current supported-version recommendations.
+
+Fresh local macOS/Apple Silicon verification uses **Node 24.22.1**, activated as the executable resolved by `node` on the host PATH, and JBR 21.0.10. A clean dependency install, bundle build, **33 passing Node tests** (one optional native Perfetto test skipped), **five Chromium tests**, SDK smoke checks and packaging pass. Runtime regressions test both patched floors, vulnerable prior patches, EOL releases, prereleases, bundled MCP startup rejection and continued CLI help/doctor diagnostics. `doctor` includes `nodeExecutable`, the policy, support reason and an explicit EOL/outdated issue.
+
+The CI 22/24 matrix on macOS, Windows and Linux now resolves the latest patch (`check-latest: true`), prints the exact version/executable in **Verify patched LTS runtime**, and fails before npm installation if it is below the baseline. Fresh hosted Windows execution and the Linux/KVM Android journey are reported by the [Verify plugin workflow](https://github.com/till-tus/build-android-apps/actions/workflows/ci.yml). This does not assert that a previously recorded physical Windows installation was upgraded. Already-running desktop/plugin processes must be restarted after a Node executable change; an npm audit does not establish runtime patch status.
+
 ## 0.2.1 — public repository preparation, 23 October 2026
 
 The readiness audit covers source, the committed runtime, full Git history, all retained CI logs/artifacts, redistribution notices and installation documentation. See the [audit record](public-readiness.md) for scope and results.
 
-Local macOS / Apple Silicon validation uses Node 25.6.1 and Android Studio JBR 21.0.10. A clean `npm ci` and `npm run check` pass 31 Node tests and five Chromium tests; the optional native Perfetto test is explicitly skipped when no processor is configured. New checks exercise an out-of-JDK Java launcher with a path containing spaces and a relocated bundled MCP server without `node_modules`. The SDK smoke check covers the native SDK manager and Java AVD manager.
+Historical macOS / Apple Silicon validation used Node 25.6.1 and Android Studio JBR 21.0.10; that Node version is now explicitly unsupported and superseded by the 0.2.2 evidence above. A clean `npm ci` and `npm run check` passed 31 Node tests and five Chromium tests; the optional native Perfetto test was skipped without a processor. New checks exercised an out-of-JDK Java launcher with a path containing spaces and a relocated bundled MCP server without `node_modules`. The SDK smoke check covered the native SDK manager and Java AVD manager.
 
 The previous [CI run at ab0d1ef](https://github.com/till-tus/build-android-apps/actions/runs/39867056420) passes all six OS/Node combinations (macOS, Windows, Linux; Node 22/24), plus the Linux/KVM real-emulator journey including native Perfetto analysis. This is separately observed hosted Windows execution, not a local Windows run of the readiness changes. Native Codex annotation delivery remains a manual host-specific boundary.
 
