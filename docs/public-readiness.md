@@ -1,6 +1,6 @@
 # Public repository readiness audit
 
-Audit date: 23 October 2026. Repository visibility remains private. This record contains no authenticated viewer URLs, raw device data or scanner findings containing secret values.
+Audit date: 23 October 2026. The audit was performed while the repository was private; publication was subsequently authorized after final validation. This record contains no authenticated viewer URLs, raw device data or scanner findings containing secret values.
 
 ## Scope and secret checks
 
@@ -20,7 +20,7 @@ No credential rotation or Git history rewrite was indicated by these checks. Pat
 - Preserved the full upstream MIT text for `@nodable/entities@3.1.0`, whose npm package omits its license. Builds now fail when a bundled dependency lacks full redistribution license text. Added Android robot CC BY 3.0 attribution to the notices and icon metadata. Existing MIT and Gradle Apache notices remain included.
 - Added full-history/source Gitleaks checks (including a viewer-session-URL rule), npm auditing, immutable action pins and committed-bundle freshness checks to CI. Added Dependabot configuration, a security policy, contribution instructions, consistent line endings and ignore rules for credentials/signing/capture files. Packages include the new documentation and license assets.
 - Updated the plugin and bundle to 0.2.1. Kept `package.json` private to prevent accidental npm publishing; this does not restrict public GitHub or plugin marketplace use.
-- Reviewed the seven initial Dependabot PRs and integrated their action, esbuild and Zod updates together with a regenerated runtime/notices. Enabled GitHub's automatic merged-branch deletion. Saved an idempotent `main` protection helper with administrator bypass; GitHub refuses to enforce protection/rulesets while the repository is private on the current plan, so protection must be applied after the visibility/plan change. See [repository settings](../CONTRIBUTING.md#repository-settings).
+- Reviewed and merged all seven initial Dependabot PRs, integrating their action, esbuild and Zod updates with a regenerated runtime/notices. Enabled GitHub's automatic merged-branch deletion and verified that only `main` remains. Saved an idempotent `main` protection helper with administrator bypass; GitHub initially refused protection while private on the current plan. The approved publication applies that policy after changing visibility. See [repository settings](../CONTRIBUTING.md#repository-settings).
 - Zod 4 exposed a bundled ESM initialization-order failure (`Class is not a constructor`), caught by both bundled MCP tests while unbundled source registration still worked. Importing/initializing Zod before the SDK's module-level schema declarations fixes the actual bundle; the same protocol/standalone tests verify startup and invalid-call handling with the new dependencies.
 
 ## Validation and boundaries
