@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile, mkdir } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { parseHierarchy, hitTest, parseBounds, annotationMetadata } from '../server/src/hierarchy.mjs';
 import { sdkCandidates, sdkToolDirectories } from '../server/src/paths.mjs';
 import { run, remoteQuote } from '../server/src/process.mjs';
@@ -61,7 +62,11 @@ test('project creation writes a portable, non-destructive Compose project and so
   try {
     const project=await createProject({directory:path.join(tmp,'A Project With Spaces'),name:'A Project',app:'dev.test.app'});
     assert.match(await readFile(path.join(project.directory,'app/build.gradle.kts'),'utf8'),/com.android.application/);
-    assert.ok((await readFile(path.join(project.directory,'gradle/wrapper/gradle-wrapper.jar'))).length>30000);
+    const wrapper = await readFile(path.join(project.directory,'gradle/wrapper/gradle-wrapper.jar'));
+    assert.equal(createHash('sha256').update(wrapper).digest('hex'), '3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98');
+    const properties = await readFile(path.join(project.directory,'gradle/wrapper/gradle-wrapper.properties'), 'utf8');
+    assert.match(properties, /gradle-9\.8\.1-bin\.zip/);
+    assert.equal(properties.match(/^distributionSha256Sum=(.*)$/m)?.[1], 'dce76f55f8e251a3a1f130eb120f30b3d271de2b76c9b0729d316b5a1b6dc01f');
     const hints=await sourceHints(project.directory,{resourceId:'counter',text:'Count: 0'}); assert.ok(hints.some(h=>h.snippet.includes('testTag')));
     await assert.rejects(createProject({directory:project.directory}),/empty/);
     await assert.rejects(createProject({directory:path.join(tmp,'bad'),name:'${evil}'}),/Project name/);
