@@ -14,7 +14,7 @@ The viewer streams a real device, forwards input, inspects Android accessibility
 | Node.js | Latest patched [Node.js 24 LTS](https://nodejs.org/) (at least **24.22.1**) or 22 LTS (at least **22.23.4**), on the PATH inherited by Codex. Other major lines and prereleases are rejected. |
 | Git | [Git](https://git-scm.com/downloads), for cloning and marketplace updates. |
 | Android tools | [Android Studio](https://developer.android.com/studio/install) is the easiest way to install/manage the SDK, Java and virtual devices. A separately installed SDK and JDK also work. |
-| Java | A full JDK compatible with your project. JDK 21 is tested; the generated AGP 9.1.1 / Gradle 9.3.1 project requires at least JDK 17. Android Studio's bundled JBR works. |
+| Java | A full JDK compatible with your project. JDK 21 is tested; the generated AGP 9.1.1 / Gradle 9.8.1 project requires at least JDK 17. Android Studio's bundled JBR works. |
 | Device | An accelerated AVD matching the host CPU, or a USB-connected Android device with USB debugging authorized. The generated sample requires Android 8 / API 26 or newer. |
 
 In Android Studio's **SDK Manager**, install **Android SDK Platform-Tools**, **Android Emulator** (for AVDs), and current **Android SDK Command-line Tools**. For generated projects, also install **Android SDK Platform 36** (`platforms;android-36`) and **Build-Tools 36.0.0** (`build-tools;36.0.0`). Existing projects may require other platform/build-tool versions. Review and accept the SDK licenses in Android Studio. The plugin does not accept new licenses unless you explicitly request it.
